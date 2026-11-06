@@ -141,7 +141,7 @@ export function ChatroomMessageBubble({ message, agents, onToggleReaction, onRep
   return (
     <div
       id={`chatroom-msg-${message.id}`}
-      className={`group flex gap-2.5 px-4 hover:bg-white/[0.02] ${isGrouped ? 'py-0.5' : 'py-1.5'}`}
+      className={`group flex flex-wrap gap-2.5 px-4 hover:bg-white/[0.02] ${isGrouped ? 'py-0.5' : 'py-1.5'}`}
       style={{ animation: 'msg-in 0.25s ease-out both' }}
     >
       {/* Avatar or spacer */}
@@ -229,7 +229,7 @@ export function ChatroomMessageBubble({ message, agents, onToggleReaction, onRep
         )}
 
         {/* Message text with markdown */}
-        <div className={`text-[13px] text-text leading-[1.5] break-words chatroom-prose ${wide ? 'max-w-[92%]' : 'max-w-[85%]'}`}>
+        <div className={`text-[13px] text-text leading-[1.5] break-words chatroom-prose ${wide ? 'max-w-[92%]' : 'max-w-[85%]'} max-md:max-w-full`}>
           <MarkdownBody
             text={processedText}
             renderLink={(href, children) => {
@@ -307,10 +307,14 @@ export function ChatroomMessageBubble({ message, agents, onToggleReaction, onRep
         )}
       </div>
 
-      {/* Action buttons (reply + pin + transfer + moderate + reaction) */}
+      {/* Action buttons (reply + pin + transfer + moderate + reaction).
+          Desktop: inline at the right of the message. Mobile: wrapped onto
+          their own row below the message (basis-full) so they no longer
+          squeeze the text column. */}
       <MessageActions
         layout="inline"
         forceVisible={showPicker || showTransferPicker || showModMenu}
+        className="max-md:basis-full max-md:mt-1 max-md:pl-[38px]"
         style={{ zIndex: showPicker || showTransferPicker || showModMenu ? 50 : undefined }}
       >
         {onReply && (

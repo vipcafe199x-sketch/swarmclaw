@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tam Quốc — Ngọa Long · Phượng Sồ · Tào Tháo</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #14100c; color: #f3ead8; display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+  header { padding: 12px 16px; background: #241b12; border-bottom: 1px solid #4a3520; }
+  header h1 { margin: 0; font-size: 18px; letter-spacing: 1px; }
+  header p { margin: 2px 0 0; font-size: 12px; color: #c9b48f; }
+  header .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #58b26a; margin-right: 6px; vertical-align: middle; }
+  #messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 78%; padding: 10px 12px; border-radius: 12px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+  .msg .who { display: block; font-size: 11px; opacity: .75; margin-bottom: 4px; font-weight: 700; letter-spacing: .5px; }
+  .msg.user { align-self: flex-end; background: #3d5a80; border-bottom-right-radius: 4px; }
+  .msg.luong { align-self: flex-start; background: #1f4d3a; border-bottom-left-radius: 4px; }
+  .msg.so { align-self: flex-start; background: #6b3a1f; border-bottom-left-radius: 4px; }
+  .msg.thao { align-self: flex-start; background: #4a2b5c; border-bottom-left-radius: 4px; }
+  .msg.other { align-self: flex-start; background: #33302a; border-bottom-left-radius: 4px; }
+  .msg.sys { align-self: center; background: transparent; color: #9a8a6d; font-size: 12px; padding: 2px 8px; }
+  .msg.pending { opacity: .85; }
+  #mentions { display: flex; gap: 6px; padding: 8px 12px 0; flex-wrap: wrap; }
+  #mentions button { background: #2c241a; color: #e8d9b8; border: 1px solid #5a4630; border-radius: 20px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
+  #mentions button:hover { background: #3d2f1e; }
+  #composer { display: flex; gap: 8px; padding: 10px 12px 14px; }
+  #input { flex: 1; min-width: 0; padding: 11px 12px; border-radius: 10px; border: 1px solid #5a4630; background: #241b12; color: #f3ead8; font-size: 16px; }
+  #input:focus { outline: none; border-color: #c9a86a; }
+  #send { padding: 0 18px; border: none; border-radius: 10px; background: #c9a86a; color: #241b12; font-weight: 700; font-size: 15px; cursor: pointer; }
+  #send:disabled { opacity: .5; cursor: default; }
+  #status { text-align: center; font-size: 12px; color: #9a8a6d; padding: 0 0 8px; }
+  #gate { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 10; }
+  #gate .box { background: #241b12; border: 1px solid #5a4630; border-radius: 12px; padding: 24px; width: min(92vw, 380px); }
+  #gate h2 { margin: 0 0 8px; font-size: 17px; }
+  #gate p { margin: 0 0 14px; font-size: 13px; color: #c9b48f; line-height: 1.5; }
+  #gate input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #5a4630; background: #14100c; color: #f3ead8; font-size: 15px; margin-bottom: 10px; }
+  #gate button { width: 100%; padding: 11px; border: none; border-radius: 8px; background: #c9a86a; color: #241b12; font-weight: 700; font-size: 15px; cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏮 Tam Quốc — Phòng nghị sự</h1>
+  <p><span class="dot"></span><span id="roomName">Ngọa Long - Phượng Sồ</span> · Gia Các Lượng · Phượng Sồ · Tào Tháo</p>
+</header>
+<main id="messages"></main>
+<div id="mentions">
+  <button data-m="@Gia Các Lượng ">@Gia Các Lượng</button>
+  <button data-m="@Phượng Sồ ">@Phượng Sồ</button>
+  <button data-m="@Tào Tháo ">@Tào Tháo</button>
+  <button data-m="@all ">@all</button>
+</div>
+<form id="composer">
+  <input id="input" type="text" placeholder="Đại ca hỏi gì thì gõ vào đây…" autocomplete="off">
+  <button id="send" type="submit">Gửi</button>
+</form>
+<div id="status"></div>
+<div id="gate" hidden>
+  <div class="box">
+    <h2>Nhập khóa truy cập</h2>
+    <p>Trang này dùng chung khóa đăng nhập với ai-bot. Nhập một lần, trình duyệt sẽ nhớ. Không nhập mật khẩu tài khoản nào ở đây.</p>
+    <input id="keyInput" type="password" placeholder="Access key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <p id="gateError" style="color:#ff9a8a; font-size:13px; margin:0 0 10px; display:none;"></p>
+    <button id="keySave" type="button">Vào phòng</button>
+  </div>
+</div>
+<script>
+(function () {
+  var ROOM_NAME = 'Ngọa Long - Phượng Sồ';
+  var KEY_STORE = 'sc_access_key';
+  var key = localStorage.getItem(KEY_STORE) || '';
+  var roomId = null;
+  var agents = {};      // agentId -> { name, cls }
+  var lastSig = '';
+  var sending = false;
+  var pollTimer = null;
+
+  var box = document.getElementById('messages');
+  var input = document.getElementById('input');
+  var sendBtn = document.getElementById('send');
+  var statusEl = document.getElementById('status');
+  var gate = document.getElementById('gate');
+  var keyInput = document.getElementById('keyInput');
+
+  function clsFor(name) {
+    if (!name) return 'other';
+    if (name.indexOf('Lượng') !== -1 || name.indexOf('Luong') !== -1) return 'luong';
+    if (name.indexOf('Sồ') !== -1 || name.indexOf('So') !== -1) return 'so';
+    if (name.indexOf('Tháo') !== -1 || name.indexOf('Thao') !== -1) return 'thao';
+    return 'other';
+  }
+
+  function showGate(msg) {
+    var err = document.getElementById('gateError');
+    if (msg) { err.textContent = msg; err.style.display = 'block'; }
+    else { err.style.display = 'none'; }
+    gate.hidden = false; keyInput.focus();
+  }
+  function hideGate() { gate.hidden = true; }
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  // API SwarmClaw trả về object theo id ({id: {...}}), không phải mảng.
+  function toList(x) {
+    if (Array.isArray(x)) return x;
+    if (x && typeof x === 'object') {
+      if (Array.isArray(x.items)) return x.items;
+      if (Array.isArray(x.chatrooms)) return x.chatrooms;
+      if (Array.isArray(x.agents)) return x.agents;
+      return Object.values(x);
+    }
+    return [];
+  }
+
+  function render(messages) {
+    var sig = messages.map(function (m) { return m.id; }).join('|');
+    if (sig === lastSig) return;
+    var nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+    lastSig = sig;
+    box.innerHTML = '';
+    messages.forEach(function (m) {
+      var div = document.createElement('div');
+      if (m.senderId === 'system' || m.senderName === 'System') {
+        div.className = 'msg sys';
+        div.textContent = m.text || '';
+      } else if (m.role === 'user') {
+        div.className = 'msg user';
+        div.innerHTML = '<span class="who">ĐẠI CA</span>' + esc(m.text);
+      } else {
+        var a = agents[m.senderId] || {};
+        var nm = a.name || m.senderName || 'Quân sư';
+        div.className = 'msg ' + clsFor(nm);
+        div.innerHTML = '<span class="who">' + esc(nm.toUpperCase()) + '</span>' + esc(m.text);
+      }
+      box.appendChild(div);
+    });
+    if (nearBottom || lastSig === '') box.scrollTop = box.scrollHeight;
+  }
+
+  function api(path, opts) {
+    opts = opts || {};
+    var headers = { 'X-Access-Key': key, 'Content-Type': 'application/json' };
+    return fetch('/api' + path, {
+      method: opts.method || 'GET',
+      headers: headers,
+      body: opts.body
+    }).then(function (res) {
+      if (res.status === 401) { showGate('Key không đúng — kiểm tra lại key đăng nhập ai-bot rồi nhập lại.'); throw new Error('unauthorized'); }
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res;
+    });
+  }
+
+  function refresh() {
+    if (!roomId || sending) return;
+    api('/chatrooms/' + encodeURIComponent(roomId))
+      .then(function (r) { return r.json(); })
+      .then(function (room) { render(room.messages || []); statusEl.textContent = ''; })
+      .catch(function (e) { if (e.message !== 'unauthorized') statusEl.textContent = 'Chưa tải được tin nhắn, đang thử lại…'; });
+  }
+
+  function init() {
+    if (!key) { showGate(); return; }
+    hideGate();
+    api('/agents')
+      .then(function (r) { return r.json(); })
+      .then(function (list) {
+        toList(list).forEach(function (a) {
+          agents[a.id] = { name: a.name };
+        });
+        return api('/chatrooms');
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (list) {
+        var rooms = toList(list);
+        var room = null;
+        for (var i = 0; i < rooms.length; i++) {
+          if (rooms[i].name === ROOM_NAME) { room = rooms[i]; break; }
+        }
+        if (!room) throw new Error('room not found');
+        roomId = room.id;
+        document.getElementById('roomName').textContent = room.name;
+        render(room.messages || []);
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(refresh, 4000);
+      })
+      .catch(function (e) {
+        if (e.message !== 'unauthorized') statusEl.textContent = e.message === 'room not found' ? 'Không tìm thấy phòng “' + ROOM_NAME + '”.' : 'Lỗi tải phòng: ' + e.message;
+      });
+  }
+
+  document.getElementById('composer').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var text = input.value.trim();
+    if (!text || !roomId || sending) return;
+    sending = true;
+    sendBtn.disabled = true;
+    input.value = '';
+    statusEl.textContent = 'Ba quân sư đang bàn…';
+    var pending = document.createElement('div');
+    pending.className = 'msg other pending';
+    pending.innerHTML = '<span class="who">…</span>';
+    box.appendChild(pending);
+    box.scrollTop = box.scrollHeight;
+
+    fetch('/api/chatrooms/' + encodeURIComponent(roomId) + '/chat', {
+      method: 'POST',
+      headers: { 'X-Access-Key': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ senderId: 'user', text: text })
+    }).then(function (res) {
+      if (res.status === 401) { showGate('Key không đúng — kiểm tra lại key đăng nhập ai-bot rồi nhập lại.'); throw new Error('unauthorized'); }
+      if (!res.body) throw new Error('no stream');
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buf = '';
+      var gotText = '';
+      function pump() {
+        return reader.read().then(function (r) {
+          if (r.done) return;
+          buf += decoder.decode(r.value, { stream: true });
+          var lines = buf.split('\n');
+          buf = lines.pop();
+          lines.forEach(function (line) {
+            line = line.trim();
+            if (line.indexOf('data:') === 0) {
+              try {
+                var evt = JSON.parse(line.slice(5).trim());
+                if (evt && evt.t === 'd' && evt.text) {
+                  gotText += evt.text;
+                  pending.innerHTML = '<span class="who">…</span>' + esc(gotText);
+                  box.scrollTop = box.scrollHeight;
+                }
+              } catch (e) { /* ignore partial lines */ }
+            }
+          });
+          return pump();
+        });
+      }
+      return pump();
+    }).then(function () {
+      sending = false;
+      sendBtn.disabled = false;
+      statusEl.textContent = '';
+      refresh();
+    }).catch(function (e) {
+      sending = false;
+      sendBtn.disabled = false;
+      if (pending.parentNode) pending.parentNode.removeChild(pending);
+      if (e.message !== 'unauthorized') statusEl.textContent = 'Gửi chưa được, thử lại nhé Đại ca.';
+    });
+  });
+
+  document.querySelectorAll('#mentions button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      input.value = b.getAttribute('data-m');
+      input.focus();
+    });
+  });
+
+  document.getElementById('keySave').addEventListener('click', function () {
+    var v = keyInput.value.trim();
+    if (!v) return;
+    key = v;
+    var stored = true;
+    try {
+      localStorage.setItem(KEY_STORE, v);
+    } catch (e) {
+      // Trình duyệt này không cho lưu key — vẫn dùng key trong bộ nhớ cho lần mở này.
+      stored = false;
+    }
+    keyInput.value = '';
+    hideGate();
+    if (!stored) statusEl.textContent = 'Trình duyệt này không lưu được key — lần sau mở lại sẽ hỏi key nữa.';
+    init();
+  });
+  keyInput.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') document.getElementById('keySave').click();
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>

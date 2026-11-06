@@ -59,7 +59,8 @@
   <div class="box">
     <h2>Nhập khóa truy cập</h2>
     <p>Trang này dùng chung khóa đăng nhập với ai-bot. Nhập một lần, trình duyệt sẽ nhớ. Không nhập mật khẩu tài khoản nào ở đây.</p>
-    <input id="keyInput" type="password" placeholder="Access key" autocomplete="off">
+    <input id="keyInput" type="password" placeholder="Access key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <p id="gateError" style="color:#ff9a8a; font-size:13px; margin:0 0 10px; display:none;"></p>
     <button id="keySave" type="button">Vào phòng</button>
   </div>
 </div>
@@ -89,7 +90,12 @@
     return 'other';
   }
 
-  function showGate() { gate.hidden = false; keyInput.focus(); }
+  function showGate(msg) {
+    var err = document.getElementById('gateError');
+    if (msg) { err.textContent = msg; err.style.display = 'block'; }
+    else { err.style.display = 'none'; }
+    gate.hidden = false; keyInput.focus();
+  }
   function hideGate() { gate.hidden = true; }
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -126,7 +132,7 @@
       headers: headers,
       body: opts.body
     }).then(function (res) {
-      if (res.status === 401) { showGate(); throw new Error('unauthorized'); }
+      if (res.status === 401) { showGate('Key không đúng — kiểm tra lại key đăng nhập ai-bot rồi nhập lại.'); throw new Error('unauthorized'); }
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res;
     });
@@ -189,7 +195,7 @@
       headers: { 'X-Access-Key': key, 'Content-Type': 'application/json' },
       body: JSON.stringify({ senderId: 'user', text: text })
     }).then(function (res) {
-      if (res.status === 401) { showGate(); throw new Error('unauthorized'); }
+      if (res.status === 401) { showGate('Key không đúng — kiểm tra lại key đăng nhập ai-bot rồi nhập lại.'); throw new Error('unauthorized'); }
       if (!res.body) throw new Error('no stream');
       var reader = res.body.getReader();
       var decoder = new TextDecoder();
@@ -242,8 +248,16 @@
     var v = keyInput.value.trim();
     if (!v) return;
     key = v;
-    localStorage.setItem(KEY_STORE, v);
+    var stored = true;
+    try {
+      localStorage.setItem(KEY_STORE, v);
+    } catch (e) {
+      // Trình duyệt này không cho lưu key — vẫn dùng key trong bộ nhớ cho lần mở này.
+      stored = false;
+    }
     keyInput.value = '';
+    hideGate();
+    if (!stored) statusEl.textContent = 'Trình duyệt này không lưu được key — lần sau mở lại sẽ hỏi key nữa.';
     init();
   });
   keyInput.addEventListener('keydown', function (ev) {

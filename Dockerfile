@@ -25,8 +25,9 @@ RUN npm config set fetch-retries 5 \
 # Copy source
 COPY . .
 
-# Build
-RUN SWARMCLAW_BUILD_MODE=1 npm run build:ci
+# Build (NODE_OPTIONS raises the V8 heap cap — the default ~1 GB heap OOMs
+# the Turbopack production build on small instances even when swap is ample)
+RUN NODE_OPTIONS=--max-old-space-size=4096 SWARMCLAW_BUILD_MODE=1 npm run build:ci
 
 # Production
 FROM node:22-slim AS runner

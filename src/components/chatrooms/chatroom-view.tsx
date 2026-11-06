@@ -101,6 +101,9 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
   const chatrooms = useChatroomStore((s) => s.chatrooms)
   const streamingAgents = useChatroomStore((s) => s.streamingAgents)
   const sendMessage = useChatroomStore((s) => s.sendMessage)
+  const discussing = useChatroomStore((s) => s.discussing)
+  const startDiscussion = useChatroomStore((s) => s.startDiscussion)
+  const stopDiscussion = useChatroomStore((s) => s.stopDiscussion)
   const toggleReaction = useChatroomStore((s) => s.toggleReaction)
   const togglePin = useChatroomStore((s) => s.togglePin)
   const setReplyingTo = useChatroomStore((s) => s.setReplyingTo)
@@ -135,6 +138,12 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
   const [inspectedExecLogs, setInspectedExecLogs] = useState<SessionExecLogEntry[]>([])
   const [inspectLoading, setInspectLoading] = useState(false)
   const [inspectError, setInspectError] = useState<string | null>(null)
+  // Self-discussion (Tự thảo luận) picker state
+  const [discussOpen, setDiscussOpen] = useState(false)
+  const [discussMain, setDiscussMain] = useState('')
+  const [discussOrder, setDiscussOrder] = useState<string[]>([])
+  const [discussRounds, setDiscussRounds] = useState(2)
+  const [discussCloser, setDiscussCloser] = useState('')
 
   const handleHeartbeatPulse = useCallback((agentId: string) => {
     setAgentMoments((prev) => ({ ...prev, [agentId]: { kind: 'heartbeat' } }))
@@ -497,6 +506,31 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
                   Watch Session
                 </button>
               )}
+              {discussing ? (
+                <button
+                  type="button"
+                  onClick={() => stopDiscussion()}
+                  className="shrink-0 rounded-[9px] border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-[11px] font-600 text-red-300 hover:bg-red-500/20 cursor-pointer transition-colors"
+                >
+                  Dừng thảo luận
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={memberAgents.length < 2}
+                  onClick={() => {
+                    const ids = memberAgents.map((a) => a.id)
+                    setDiscussMain(ids[0] || '')
+                    setDiscussOrder(ids)
+                    setDiscussRounds(2)
+                    setDiscussCloser(ids[0] || '')
+                    setDiscussOpen(true)
+                  }}
+                  className="shrink-0 rounded-[9px] border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-600 text-emerald-300 hover:bg-emerald-500/20 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Tự thảo luận
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -672,6 +706,19 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
           </div>
         )}
 
+        {discussing && (
+          <div className="border-t border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-2 flex items-center gap-2">
+            <span className="text-[12px] text-emerald-300">Đang thảo luận… các agent sẽ tự nối tiếp nhau.</span>
+            <button
+              type="button"
+              onClick={() => stopDiscussion()}
+              className="ml-auto shrink-0 rounded-[8px] border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[11px] font-600 text-red-300 hover:bg-red-500/20 cursor-pointer"
+            >
+              Dừng
+            </button>
+          </div>
+        )}
+
         <ChatroomInput
           agents={memberAgents}
           onSend={sendMessage}
@@ -716,6 +763,127 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
           onInspectAgentSession={handleInspectAgentSession}
           compact
         />
+      </BottomSheet>
+      <BottomSheet
+        open={discussOpen}
+        onClose={() => setDiscussOpen(false)}
+        title="Tự thảo luận"
+        description="Các agent tự nói chuyện với nhau theo thứ tự, thằng sau phản hồi ý thằng trước. Chủ đề là câu hỏi mới nhất trong phòng."
+      >
+        <div className="space-y-4 px-1 pb-2">
+          <div>
+            <label className="text-[11px] font-700 uppercase tracking-[0.08em] text-text-3/70">Thằng làm main (nói đầu tiên)</label>
+            <select
+              value={discussMain}
+              onChange={(e) => {
+                const nextMain = e.target.value
+                setDiscussMain(nextMain)
+                setDiscussOrder((prev) => [nextMain, ...prev.filter((aid) => aid !== nextMain)])
+              }}
+              className="mt-1.5 w-full rounded-[10px] border border-white/[0.08] bg-surface-2 px-3 py-2 text-[13px] text-text outline-none"
+            >
+              {memberAgents.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-700 uppercase tracking-[0.08em] text-text-3/70">Thứ tự trả lời</label>
+            <div className="mt-1.5 space-y-1.5">
+              {discussOrder.map((aid, idx) => {
+                const a = agents[aid]
+                if (!a) return null
+                return (
+                  <div key={aid} className="flex items-center gap-2 rounded-[10px] border border-white/[0.06] bg-white/[0.02] px-3 py-2">
+                    <span className="text-[12px] font-700 text-text-3 w-5">{idx + 1}.</span>
+                    <span className="flex-1 text-[13px] text-text">{a.name}{aid === discussMain ? ' · main' : ''}</span>
+                    <button
+                      type="button"
+                      disabled={idx === 0}
+                      onClick={() => setDiscussOrder((prev) => {
+                        const next = [...prev]
+                        const target = idx - 1
+                        if (target < 0) return prev
+                        const [item] = next.splice(idx, 1)
+                        next.splice(target, 0, item)
+                        return next
+                      })}
+                      className="px-2 py-1 rounded-md text-[12px] text-text-2 hover:bg-white/[0.08] disabled:opacity-30 cursor-pointer"
+                    >↑</button>
+                    <button
+                      type="button"
+                      disabled={idx === discussOrder.length - 1}
+                      onClick={() => setDiscussOrder((prev) => {
+                        const next = [...prev]
+                        const target = idx + 1
+                        if (target >= next.length) return prev
+                        const [item] = next.splice(idx, 1)
+                        next.splice(target, 0, item)
+                        return next
+                      })}
+                      className="px-2 py-1 rounded-md text-[12px] text-text-2 hover:bg-white/[0.08] disabled:opacity-30 cursor-pointer"
+                    >↓</button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-[11px] font-700 uppercase tracking-[0.08em] text-text-3/70">Số vòng tối đa</label>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={discussRounds <= 1}
+                onClick={() => setDiscussRounds((r) => Math.max(1, r - 1))}
+                className="w-7 h-7 rounded-md border border-white/[0.08] text-[14px] text-text-2 hover:bg-white/[0.06] disabled:opacity-30 cursor-pointer"
+              >−</button>
+              <span className="w-8 text-center text-[14px] font-700 text-text">{discussRounds}</span>
+              <button
+                type="button"
+                disabled={discussRounds >= 3}
+                onClick={() => setDiscussRounds((r) => Math.min(3, r + 1))}
+                className="w-7 h-7 rounded-md border border-white/[0.08] text-[14px] text-text-2 hover:bg-white/[0.06] disabled:opacity-30 cursor-pointer"
+              >+</button>
+            </div>
+            <span className="text-[11px] text-text-3/70">mỗi thằng nói {discussRounds} lượt</span>
+          </div>
+          <div>
+            <label className="text-[11px] font-700 uppercase tracking-[0.08em] text-text-3/70">Thằng chốt lại (báo cáo Đại ca)</label>
+            <select
+              value={discussCloser}
+              onChange={(e) => setDiscussCloser(e.target.value)}
+              className="mt-1.5 w-full rounded-[10px] border border-white/[0.08] bg-surface-2 px-3 py-2 text-[13px] text-text outline-none"
+            >
+              {memberAgents.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setDiscussOpen(false)
+                void startDiscussion({
+                  mainAgentId: discussMain,
+                  order: discussOrder,
+                  maxRounds: discussRounds,
+                  closerAgentId: discussCloser,
+                })
+              }}
+              className="flex-1 rounded-[10px] bg-emerald-500/90 px-4 py-2.5 text-[13px] font-700 text-white hover:bg-emerald-500 cursor-pointer"
+            >
+              Bắt đầu thảo luận
+            </button>
+            <button
+              type="button"
+              onClick={() => setDiscussOpen(false)}
+              className="rounded-[10px] border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-[13px] font-600 text-text-2 hover:bg-white/[0.06] cursor-pointer"
+            >
+              Hủy
+            </button>
+          </div>
+        </div>
       </BottomSheet>
       <BottomSheet
         open={inspectSessionOpen}

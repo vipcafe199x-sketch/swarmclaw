@@ -32,6 +32,14 @@ function nextQueuedId() {
 
 export type ChatroomFilterMode = 'chatrooms' | 'protocols'
 
+export interface DiscussSettings {
+  topic?: string
+  mainAgentId?: string
+  order?: string[]
+  maxRounds?: number
+  closerAgentId?: string
+}
+
 interface ChatroomState {
   chatrooms: Record<string, Chatroom>
   protocolRooms: Record<string, Chatroom>
@@ -41,6 +49,9 @@ interface ChatroomState {
   streamingAgents: Map<string, StreamingAgent>
   chatroomSheetOpen: boolean
   editingChatroomId: string | null
+  /** A self-discussion run is in progress (Tự thảo luận). */
+  discussing: boolean
+  discussAbort: AbortController | null
 
   // File uploads
   pendingFiles: PendingFile[]
@@ -64,6 +75,8 @@ interface ChatroomState {
   deleteChatroom: (id: string) => Promise<void>
   setCurrentChatroom: (id: string | null) => void
   sendMessage: (text: string) => Promise<void>
+  startDiscussion: (settings: DiscussSettings) => Promise<void>
+  stopDiscussion: () => void
   toggleReaction: (messageId: string, emoji: string) => Promise<void>
   togglePin: (messageId: string) => Promise<void>
   addMember: (agentId: string) => Promise<void>
@@ -89,6 +102,8 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
   streamingAgents: new Map(),
   chatroomSheetOpen: false,
   editingChatroomId: null,
+  discussing: false,
+  discussAbort: null,
 
   // File uploads
   pendingFiles: [],
@@ -355,6 +370,156 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
           }, 100)
         }
       }
+    }
+  },
+
+  /** Start a self-discussion run (Tự thảo luận): agents take turns in the
+   *  chosen order, each responding to the previous speaker. Streams the same
+   *  SSE events as sendMessage so the typing/streaming UI is reused. */
+  startDiscussion: async (settings) => {
+    const { currentChatroomId, streaming, discussing } = get()
+    if (!currentChatroomId || streaming || discussing) return
+    const targetChatroomId = currentChatroomId
+    const abort = new AbortController()
+    set({ discussing: true, discussAbort: abort })
+    const key = getStoredAccessKey()
+    let started = false
+    try {
+      const res = await fetch(`/api/chatrooms/${targetChatroomId}/discuss`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(key ? { 'X-Access-Key': key } : {}),
+        },
+        body: JSON.stringify(settings),
+        signal: abort.signal,
+      })
+      if (!res.ok || !res.body) {
+        return
+      }
+      started = true
+      set({ streaming: true, streamingAgents: new Map() })
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() || ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const event = JSON.parse(line.slice(6)) as SSEEvent
+            const agentId = event.agentId
+            const agentName = event.agentName
+            if (event.t === 'cr_agent_start' && agentId && agentName) {
+              set((s) => {
+                const agents = new Map(s.streamingAgents)
+                agents.set(agentId, { text: '', name: agentName, toolEvents: [] })
+                return { streamingAgents: agents }
+              })
+            } else if (event.t === 'tool_call' && agentId && event.toolName) {
+              set((s) => {
+                const agents = new Map(s.streamingAgents)
+                const existing = agents.get(agentId)
+                if (existing) {
+                  agents.set(agentId, {
+                    ...existing,
+                    toolEvents: [...existing.toolEvents, { name: event.toolName!, input: event.toolInput || '' }],
+                  })
+                }
+                return { streamingAgents: agents }
+              })
+            } else if (event.t === 'tool_result' && agentId) {
+              set((s) => {
+                const agents = new Map(s.streamingAgents)
+                const existing = agents.get(agentId)
+                if (existing && existing.toolEvents.length > 0) {
+                  const updatedEvents = [...existing.toolEvents]
+                  const last = updatedEvents[updatedEvents.length - 1]
+                  updatedEvents[updatedEvents.length - 1] = { ...last, output: event.toolOutput || event.text || '' }
+                  agents.set(agentId, { ...existing, toolEvents: updatedEvents })
+                }
+                return { streamingAgents: agents }
+              })
+            } else if (event.t === 'd' && agentId && event.text) {
+              set((s) => {
+                const agents = new Map(s.streamingAgents)
+                const existing = agents.get(agentId)
+                if (existing) {
+                  agents.set(agentId, { ...existing, text: existing.text + event.text })
+                }
+                return { streamingAgents: agents }
+              })
+            } else if (event.t === 'err' && agentId && event.text) {
+              set((s) => {
+                const agents = new Map(s.streamingAgents)
+                const existing = agents.get(agentId)
+                if (existing) {
+                  agents.set(agentId, { ...existing, error: event.text })
+                }
+                return { streamingAgents: agents }
+              })
+            } else if (event.t === 'cr_agent_done' && agentId) {
+              const currentAgent = get().streamingAgents.get(agentId)
+              if (currentAgent?.error) {
+                setTimeout(() => {
+                  set((s) => {
+                    const agents = new Map(s.streamingAgents)
+                    agents.delete(agentId)
+                    return { streamingAgents: agents }
+                  })
+                }, 4000)
+              } else {
+                set((s) => {
+                  const agents = new Map(s.streamingAgents)
+                  agents.delete(agentId)
+                  return { streamingAgents: agents }
+                })
+              }
+            } else if (event.t === 'done') {
+              break
+            }
+          } catch {
+            // skip malformed
+          }
+        }
+      }
+    } catch (err) {
+      // AbortError from stopDiscussion is expected; anything else is ignored here.
+      if (err instanceof Error && err.name !== 'AbortError') {
+        // leave to finally for cleanup
+      }
+    } finally {
+      set({ discussing: false, discussAbort: null })
+      if (started) {
+        set({ streaming: false, streamingAgents: new Map() })
+        try {
+          const chatroom = await api<Chatroom>('GET', `/chatrooms/${targetChatroomId}`)
+          set((s) => ({ chatrooms: { ...s.chatrooms, [targetChatroomId]: chatroom } }))
+        } catch { /* ignore */ }
+        const nextQueued = get().shiftQueuedMessage()
+        if (nextQueued) {
+          if (get().currentChatroomId !== nextQueued.chatroomId) {
+            set((s) => ({ queuedMessages: [nextQueued, ...s.queuedMessages] }))
+            return
+          }
+          set({ pendingFiles: nextQueued.pendingFiles, replyingTo: nextQueued.replyingTo })
+          setTimeout(() => {
+            void get().sendMessage(nextQueued.text)
+          }, 100)
+        }
+      }
+    }
+  },
+
+  stopDiscussion: () => {
+    const { discussAbort } = get()
+    if (discussAbort) {
+      try { discussAbort.abort() } catch { /* already aborted */ }
     }
   },
 

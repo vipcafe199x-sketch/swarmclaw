@@ -17,7 +17,7 @@ function formatRoomTime(ts: number, now: number | null): string {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-export function ChatroomList({ viewMode = 'chatrooms' }: { viewMode?: 'chatrooms' | 'sessions' }) {
+export function ChatroomList({ viewMode = 'chatrooms', onSelectRoom }: { viewMode?: 'chatrooms' | 'sessions'; onSelectRoom?: () => void }) {
   const now = useNow()
   const chatrooms = useChatroomStore((s) => s.chatrooms)
   const currentChatroomId = useChatroomStore((s) => s.currentChatroomId)
@@ -109,7 +109,7 @@ export function ChatroomList({ viewMode = 'chatrooms' }: { viewMode?: 'chatrooms
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search rooms, members, or recent messages..."
-              className="w-full rounded-[12px] border border-white/[0.06] bg-surface px-3 py-2.5 text-[13px] text-text placeholder:text-text-3/70 focus:outline-none focus:border-accent-bright/35"
+              className="w-full rounded-[12px] border border-white/[0.06] bg-surface px-3 py-2.5 text-base md:text-[13px] text-text placeholder:text-text-3/70 focus:outline-none focus:border-accent-bright/35"
             />
             <div className="flex flex-wrap items-center gap-1">
               {(['all', 'active', 'recent', 'unread'] as const).map((value) => (
@@ -145,7 +145,7 @@ export function ChatroomList({ viewMode = 'chatrooms' }: { viewMode?: 'chatrooms
                 return (
                   <button
                     key={chatroom.id}
-                    onClick={() => setCurrentChatroom(chatroom.id)}
+                    onClick={() => { setCurrentChatroom(chatroom.id); onSelectRoom?.() }}
                     className={`relative w-full overflow-hidden rounded-[14px] border px-4 py-3.5 text-left transition-all cursor-pointer ${
                       isActive
                         ? 'border-accent-bright/20 bg-accent-soft/55'

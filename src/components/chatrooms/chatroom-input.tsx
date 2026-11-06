@@ -565,7 +565,7 @@ export function ChatroomInput({ agents, onSend, disabled, onBreakoutRequest }: P
           <div
             ref={mirrorRef}
             aria-hidden
-            className="absolute inset-0 px-5 pt-4 pb-2 text-[15px] leading-[1.55] text-text break-words whitespace-pre-wrap pointer-events-none overflow-hidden"
+            className="absolute inset-0 px-5 pt-4 pb-2 text-base md:text-[15px] leading-[1.55] text-text break-words whitespace-pre-wrap pointer-events-none overflow-hidden"
             style={{ minHeight: '56px' }}
           >
             {highlightedSegments}
@@ -580,7 +580,7 @@ export function ChatroomInput({ agents, onSend, disabled, onBreakoutRequest }: P
             placeholder="Ask the room anything... Use @ to mention agents or /breakout to focus the room"
             disabled={disabled}
             rows={1}
-            className="relative w-full resize-none border-none bg-transparent px-5 pt-4 pb-2 text-[15px] text-transparent caret-white placeholder:text-text-3/70 focus:outline-none selection:bg-accent-bright/20 max-h-[160px] leading-[1.55] disabled:opacity-50"
+            className="relative w-full resize-none border-none bg-transparent px-5 pt-4 pb-2 text-base md:text-[15px] text-transparent caret-white placeholder:text-text-3/70 focus:outline-none selection:bg-accent-bright/20 max-h-[160px] leading-[1.55] disabled:opacity-50"
             style={{ minHeight: '56px', caretColor: 'rgb(244 244 245)' }}
           />
         </div>

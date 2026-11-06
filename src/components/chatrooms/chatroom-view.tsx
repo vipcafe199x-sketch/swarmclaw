@@ -92,7 +92,7 @@ function dayLabel(ts: number, now: number | null): string {
   return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
 }
 
-export function ChatroomView() {
+export function ChatroomView({ onBack }: { onBack?: () => void }) {
   const router = useRouter()
   const navigateTo = useNavigate()
   const navigateToAgent = (agentId: string) => navigateTo('agents', agentId)
@@ -374,7 +374,20 @@ export function ChatroomView() {
     <div className="flex-1 flex min-h-0 min-w-0">
       <div className="min-w-0 flex-1 flex flex-col h-full">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] shrink-0">
-          <div className="w-8 h-8 rounded-full bg-accent-soft flex items-center justify-center shrink-0">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Back to chatrooms"
+              className="shrink-0 flex h-10 w-10 items-center justify-center rounded-[10px] border border-white/[0.08] bg-white/[0.03] text-text-2 hover:bg-white/[0.06] cursor-pointer transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+            </button>
+          )}
+          <div className="w-8 h-8 rounded-full bg-accent-soft hidden md:flex items-center justify-center shrink-0">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent-bright">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
@@ -410,7 +423,7 @@ export function ChatroomView() {
             </div>
           </div>
 
-          <div className="flex -space-x-1.5 shrink-0">
+          <div className="hidden md:flex -space-x-1.5 shrink-0">
             {memberAgents.slice(0, 5).map((agent) => {
               const role = getMemberRole(chatroom, agent.id)
               const badge = getRoleBadge(role)

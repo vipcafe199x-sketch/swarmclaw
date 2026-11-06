@@ -789,3 +789,10 @@ textarea:hover::-webkit-scrollbar { width: 6px; }
     @apply border-border outline-ring/50;
   }
 }
+
+/* Mobile chatroom (ChatGPT-style): agent name uses its per-agent color, set
+   via --agent-color on the name element. Unlayered so it beats the layered
+   text-accent-bright utility below 768px; desktop keeps text-accent-bright. */
+@media (max-width: 767px) {
+  .chatroom-agent-name { color: var(--agent-color); }
+}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { AgentAvatar } from '@/components/agents/agent-avatar'
 import { useNow } from '@/hooks/use-now'
 import { ReactionPicker } from './reaction-picker'
@@ -38,6 +38,15 @@ interface Props {
   grouped?: boolean
   /** Moment overlay to display above the avatar (heartbeat/tool activity) */
   momentOverlay?: React.ReactNode
+}
+
+/** Distinct color per agent for the name heading on mobile (ChatGPT-style).
+ *  Desktop keeps the shared text-accent-bright. */
+const AGENT_COLORS = ['#7dd3fc', '#fbbf24', '#f472b6', '#a3e635', '#c084fc', '#34d399']
+function getAgentColor(agentId: string): string {
+  let h = 0
+  for (let i = 0; i < agentId.length; i++) h = (h * 31 + agentId.charCodeAt(i)) >>> 0
+  return AGENT_COLORS[h % AGENT_COLORS.length]
 }
 
 function formatRelativeTime(ts: number, now: number | null): string {
@@ -144,8 +153,8 @@ export function ChatroomMessageBubble({ message, agents, onToggleReaction, onRep
       className={`group flex flex-wrap gap-2.5 px-4 hover:bg-white/[0.02] ${isGrouped ? 'py-0.5' : 'py-1.5'}`}
       style={{ animation: 'msg-in 0.25s ease-out both' }}
     >
-      {/* Avatar or spacer */}
-      <div className="shrink-0 mt-0.5 w-7 relative">
+      {/* Avatar or spacer (hidden on mobile for the user's own messages — they render as a right-aligned bubble) */}
+      <div className={`shrink-0 mt-0.5 w-7 relative ${isUser ? 'max-md:hidden' : ''}`}>
         {!isGrouped && (
           isUser ? (
             userAvatarSeed ? (
@@ -174,17 +183,24 @@ export function ChatroomMessageBubble({ message, agents, onToggleReaction, onRep
         {momentOverlay}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 min-w-0">
+      {/* Content. Mobile: the user's own messages render as a right-aligned
+          bubble (dark theme color); agent messages stay plain full-width text. */}
+      <div className={isUser
+        ? 'flex-1 min-w-0 max-md:flex-none max-md:w-auto max-md:max-w-[85%] max-md:ml-auto max-md:bg-white/[0.08] max-md:rounded-2xl max-md:px-3.5 max-md:py-2.5'
+        : 'flex-1 min-w-0'
+      }>
         {!isGrouped && (() => {
           const role = !isUser ? getMemberRoleFromChatroom(chatroom, message.senderId) : 'member'
           const badge = !isUser ? roleBadgeStyle(role) : null
           const muted = !isUser ? isAgentMutedInChatroom(chatroom, message.senderId, now) : false
           return (
-            <div className="flex items-baseline gap-2 mb-0.5">
+            <div className={`flex items-baseline gap-2 mb-0.5 ${isUser ? 'max-md:hidden' : ''}`}>
               {!isUser && agent ? (
                 <AgentHoverCard agent={agent}>
-                  <span className="text-[13px] font-600 text-accent-bright hover:underline cursor-pointer flex items-center gap-1.5">
+                  <span
+                    className="chatroom-agent-name text-[13px] font-600 text-accent-bright hover:underline cursor-pointer flex items-center gap-1.5 max-md:text-[14px]"
+                    style={{ '--agent-color': getAgentColor(message.senderId) } as CSSProperties}
+                  >
                     {message.source && <ConnectorPlatformIcon platform={message.source.platform} size={12} />}
                     {message.senderName}
                   </span>
@@ -314,7 +330,10 @@ export function ChatroomMessageBubble({ message, agents, onToggleReaction, onRep
       <MessageActions
         layout="inline"
         forceVisible={showPicker || showTransferPicker || showModMenu}
-        className="max-md:basis-full max-md:mt-1 max-md:pl-[38px]"
+        className={isUser
+          ? 'max-md:basis-full max-md:mt-1 max-md:justify-end'
+          : 'max-md:basis-full max-md:mt-1 max-md:pl-[38px]'
+        }
         style={{ zIndex: showPicker || showTransferPicker || showModMenu ? 50 : undefined }}
       >
         {onReply && (

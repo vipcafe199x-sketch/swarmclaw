@@ -1,6 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
+import { toast } from 'sonner'
 import { api, getStoredAccessKey } from '@/lib/app/api-client'
 import type { Chatroom, ChatroomMessage, SSEEvent } from '@/types'
 import type { PendingFile } from '@/stores/use-chat-store'
@@ -245,6 +246,8 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
       })
 
       if (!res.ok || !res.body) {
+        const body = await res.json().catch(() => null)
+        toast.error(body?.error || `Chatroom request failed (${res.status})`, { duration: 12000 })
         return
       }
 
@@ -329,16 +332,18 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
                 }
                 return { streamingAgents: agents }
               })
-            } else if (event.t === 'd' && agentId && event.text) {
+            } else if ((event.t === 'd' || event.t === 'r' || event.t === 'reset') && agentId && typeof event.text === 'string') {
               set((s) => {
                 const agents = new Map(s.streamingAgents)
                 const existing = agents.get(agentId)
                 if (existing) {
-                  agents.set(agentId, { ...existing, text: existing.text + event.text })
+                  agents.set(agentId, { ...existing, text: event.t === 'd' ? existing.text + event.text : event.text! })
                 }
                 return { streamingAgents: agents }
               })
-            } else if (event.t === 'err' && agentId && event.text) {
+            } else if (event.t === 'err' && event.text) {
+              toast.error(event.text, { description: agentName, duration: 12000 })
+              if (!agentId) continue
               set((s) => {
                 const agents = new Map(s.streamingAgents)
                 const existing = agents.get(agentId)
@@ -365,22 +370,11 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
                   } }
                 })
               }
-              const currentAgent = get().streamingAgents.get(agentId)
-              if (currentAgent?.error) {
-                setTimeout(() => {
-                  set((s) => {
-                    const agents = new Map(s.streamingAgents)
-                    agents.delete(agentId)
-                    return { streamingAgents: agents }
-                  })
-                }, 4000)
-              } else {
-                set((s) => {
-                  const agents = new Map(s.streamingAgents)
-                  agents.delete(agentId)
-                  return { streamingAgents: agents }
-                })
-              }
+              set((s) => {
+                const agents = new Map(s.streamingAgents)
+                agents.delete(agentId)
+                return { streamingAgents: agents }
+              })
             } else if (event.t === 'done') {
               break
             }
@@ -389,6 +383,8 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
           }
         }
       }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Chatroom connection failed', { duration: 12000 })
     } finally {
       if (started) {
         set({ streaming: false, streamingAgents: new Map() })
@@ -444,6 +440,8 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
         signal: abort.signal,
       })
       if (!res.ok || !res.body) {
+        const body = await res.json().catch(() => null)
+        toast.error(body?.error || `Chatroom request failed (${res.status})`, { duration: 12000 })
         return
       }
       started = true
@@ -517,16 +515,18 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
                 }
                 return { streamingAgents: agents }
               })
-            } else if (event.t === 'd' && agentId && event.text) {
+            } else if ((event.t === 'd' || event.t === 'r' || event.t === 'reset') && agentId && typeof event.text === 'string') {
               set((s) => {
                 const agents = new Map(s.streamingAgents)
                 const existing = agents.get(agentId)
                 if (existing) {
-                  agents.set(agentId, { ...existing, text: existing.text + event.text })
+                  agents.set(agentId, { ...existing, text: event.t === 'd' ? existing.text + event.text : event.text! })
                 }
                 return { streamingAgents: agents }
               })
-            } else if (event.t === 'err' && agentId && event.text) {
+            } else if (event.t === 'err' && event.text) {
+              toast.error(event.text, { description: agentName, duration: 12000 })
+              if (!agentId) continue
               set((s) => {
                 const agents = new Map(s.streamingAgents)
                 const existing = agents.get(agentId)
@@ -553,22 +553,11 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
                   } }
                 })
               }
-              const currentAgent = get().streamingAgents.get(agentId)
-              if (currentAgent?.error) {
-                setTimeout(() => {
-                  set((s) => {
-                    const agents = new Map(s.streamingAgents)
-                    agents.delete(agentId)
-                    return { streamingAgents: agents }
-                  })
-                }, 4000)
-              } else {
-                set((s) => {
-                  const agents = new Map(s.streamingAgents)
-                  agents.delete(agentId)
-                  return { streamingAgents: agents }
-                })
-              }
+              set((s) => {
+                const agents = new Map(s.streamingAgents)
+                agents.delete(agentId)
+                return { streamingAgents: agents }
+              })
             } else if (event.t === 'done') {
               break
             }
@@ -578,9 +567,8 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
         }
       }
     } catch (err) {
-      // AbortError from stopDiscussion is expected; anything else is ignored here.
-      if (err instanceof Error && err.name !== 'AbortError') {
-        // leave to finally for cleanup
+      if (!(err instanceof Error && err.name === 'AbortError')) {
+        toast.error(err instanceof Error ? err.message : 'Chatroom connection failed', { duration: 12000 })
       }
     } finally {
       set({ discussing: false, discussAbort: null })

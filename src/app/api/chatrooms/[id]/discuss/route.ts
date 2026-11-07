@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
-import { loadChatrooms, loadAgents } from '@/lib/server/storage'
+import { loadChatrooms, saveChatrooms, loadAgents } from '@/lib/server/storage'
 import { notFound } from '@/lib/server/collection-helpers'
 import { safeParseBody } from '@/lib/server/safe-parse-body'
 import { runChatroomAgentTurn } from '@/lib/server/chatrooms/chatroom-agent-runner'
 import { filterHealthyChatroomAgents } from '@/lib/server/chatrooms/chatroom-health'
-import type { Chatroom, Agent } from '@/types'
+import type { Chatroom, Agent, ChatroomMessage } from '@/types'
+import { genId } from '@/lib/id'
+import { notify } from '@/lib/server/ws-hub'
 import { errorMessage } from '@/lib/shared-utils'
 
 export const dynamic = 'force-dynamic'
@@ -67,15 +69,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: 'Cần ít nhất 2 agent trong phòng để thảo luận.' }, { status: 400 })
   }
 
-  // Topic: explicit, else the latest user message in the room.
-  let topic = typeof body.topic === 'string' ? body.topic.trim() : ''
-  if (!topic) {
-    const lastUser = [...chatroom.messages].reverse().find((m) => m.role === 'user')
-    topic = lastUser ? lastUser.text.trim() : ''
-  }
+  // A discussion must be triggered by a fresh explicit user prompt, never old history.
+  const topic = typeof body.topic === 'string' ? body.topic.trim() : ''
   if (!topic) {
     return NextResponse.json({ error: 'Chưa có câu hỏi/chủ đề để thảo luận. Hãy nhắn một câu hỏi trước.' }, { status: 400 })
   }
+
+  const newUserMessage: ChatroomMessage = {
+    id: genId(), senderId: 'user', senderName: 'You', role: 'user',
+    text: topic, mentions: [], reactions: [], time: Date.now(),
+    ...(typeof body.imagePath === 'string' ? { imagePath: body.imagePath } : {}),
+    ...(Array.isArray(body.attachedFiles) ? {
+      attachedFiles: body.attachedFiles.filter((path): path is string => typeof path === 'string'),
+    } : {}),
+  }
+  chatroom.messages.push(newUserMessage)
+  chatroom.updatedAt = Date.now()
+  chatrooms[id] = chatroom
+  saveChatrooms(chatrooms)
+  notify('chatrooms')
+  notify(`chatroom:${id}`)
 
   // Main agent (speaks first) + turn order.
   const mainAgentId = typeof body.mainAgentId === 'string' && memberIds.includes(body.mainAgentId)
@@ -142,6 +155,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           senderName: 'You',
           originalText: topic,
           replyContext: '',
+          imagePath: newUserMessage.imagePath,
+          attachedFiles: newUserMessage.attachedFiles,
           writeEvent,
         }
 

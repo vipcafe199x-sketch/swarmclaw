@@ -71,7 +71,7 @@ test('retries GET requests that fail with TimeoutError', async () => {
 
 test('uses same-origin cookies and never sends X-Access-Key', async () => {
   let requestInit: RequestInit | undefined
-  global.fetch = (async (_input, init) => {
+  global.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
     requestInit = init
     return new Response(JSON.stringify({ ok: true }), {
       headers: { 'content-type': 'application/json' },

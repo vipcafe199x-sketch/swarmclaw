@@ -131,6 +131,10 @@ export async function runChatroomAgentTurn(
           if (parsed.t === 'd' && parsed.text) {
             fullText += parsed.text
             writeEvent({ t: 'd', text: parsed.text, agentId: agent.id, agentName: agent.name })
+          } else if ((parsed.t === 'r' || parsed.t === 'reset') && typeof parsed.text === 'string') {
+            // Providers can replace the draft or return a complete reply without deltas.
+            fullText = parsed.text
+            writeEvent({ t: parsed.t, text: parsed.text, agentId: agent.id, agentName: agent.name })
           } else if (parsed.t === 'tool_call' || parsed.t === 'tool_result') {
             writeEvent({ ...parsed, agentId: agent.id, agentName: agent.name })
           } else if (parsed.t === 'err' && parsed.text) {

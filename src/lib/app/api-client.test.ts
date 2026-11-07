@@ -68,3 +68,18 @@ test('retries GET requests that fail with TimeoutError', async () => {
   assert.deepEqual(result, { ok: true })
   assert.equal(calls, 2)
 })
+
+test('uses same-origin cookies and never sends X-Access-Key', async () => {
+  let requestInit: RequestInit | undefined
+  global.fetch = (async (_input, init) => {
+    requestInit = init
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { 'content-type': 'application/json' },
+      status: 200,
+    })
+  }) as typeof fetch
+
+  await api('GET', '/cookie-auth-test')
+  assert.equal(requestInit?.credentials, 'same-origin')
+  assert.equal(new Headers(requestInit?.headers).has('X-Access-Key'), false)
+})

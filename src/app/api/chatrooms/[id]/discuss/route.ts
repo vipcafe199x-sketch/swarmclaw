@@ -75,21 +75,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: 'Chưa có câu hỏi/chủ đề để thảo luận. Hãy nhắn một câu hỏi trước.' }, { status: 400 })
   }
 
-  const newUserMessage: ChatroomMessage = {
-    id: genId(), senderId: 'user', senderName: 'You', role: 'user',
-    text: topic, mentions: [], reactions: [], time: Date.now(),
-    ...(typeof body.imagePath === 'string' ? { imagePath: body.imagePath } : {}),
-    ...(Array.isArray(body.attachedFiles) ? {
-      attachedFiles: body.attachedFiles.filter((path): path is string => typeof path === 'string'),
-    } : {}),
-  }
-  chatroom.messages.push(newUserMessage)
-  chatroom.updatedAt = Date.now()
-  chatrooms[id] = chatroom
-  saveChatrooms(chatrooms)
-  notify('chatrooms')
-  notify(`chatroom:${id}`)
-
   // Main agent (speaks first) + turn order.
   const mainAgentId = typeof body.mainAgentId === 'string' && memberIds.includes(body.mainAgentId)
     ? body.mainAgentId
@@ -124,6 +109,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: 'Không đủ agent khỏe mạnh để thảo luận. Kiểm tra provider/credentials rồi thử lại.' }, { status: 400 })
   }
   const closer = turnOrder.includes(closerAgentId) ? closerAgentId : turnOrder[0]
+
+  const newUserMessage: ChatroomMessage = {
+    id: genId(), senderId: 'user', senderName: 'You', role: 'user',
+    text: topic, mentions: [], reactions: [], time: Date.now(),
+    ...(typeof body.imagePath === 'string' ? { imagePath: body.imagePath } : {}),
+    ...(Array.isArray(body.attachedFiles) ? {
+      attachedFiles: body.attachedFiles.filter((path): path is string => typeof path === 'string'),
+    } : {}),
+  }
+  chatroom.messages.push(newUserMessage)
+  chatroom.updatedAt = Date.now()
+  chatrooms[id] = chatroom
+  saveChatrooms(chatrooms)
+  notify('chatrooms')
+  notify(`chatroom:${id}`)
 
   // SSE stream
   const encoder = new TextEncoder()

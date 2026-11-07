@@ -709,6 +709,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const res = await fetch(`/api/chats/${sessionId}/edit-resend`, {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -716,8 +717,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       })
       if (!res.ok) return
       // Reload messages from server (truncated)
-      const msgsRes = await fetch(`/api/chats/${sessionId}/messages`, {
-      })
+      const msgsRes = await fetch(`/api/chats/${sessionId}/messages`, { credentials: 'same-origin' })
       if (msgsRes.ok) {
         const msgs = await msgsRes.json()
         get().setMessages(msgs, { startIndex: 0, totalMessages: msgs.length })
@@ -736,13 +736,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const res = await fetch(`/api/chats/${sessionId}/retry`, {
         method: 'POST',
+        credentials: 'same-origin',
       })
       if (!res.ok) return
       const { message, imagePath } = await res.json()
       if (!message) return
       // Reload messages from server (without the popped ones)
-      const msgsRes = await fetch(`/api/chats/${sessionId}/messages`, {
-      })
+      const msgsRes = await fetch(`/api/chats/${sessionId}/messages`, { credentials: 'same-origin' })
       if (msgsRes.ok) {
         const msgs = await msgsRes.json()
         get().setMessages(msgs, { startIndex: 0, totalMessages: msgs.length })
@@ -846,6 +846,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       await fetch(`/api/chats/${sessionId}/messages`, {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind: 'context-clear' }),
       })
@@ -865,8 +866,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ loadingMore: true })
     try {
       const currentStartIndex = messageStartIndex
-      const res = await fetch(`/api/chats/${sessionId}/messages?limit=100&before=${currentStartIndex}`, {
-      })
+      const res = await fetch(`/api/chats/${sessionId}/messages?limit=100&before=${currentStartIndex}`, { credentials: 'same-origin' })
       if (res.ok) {
         const data = await res.json() as { messages: Message[]; total: number; hasMore: boolean; startIndex: number }
         set((s) => {
@@ -896,9 +896,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const sessionId = selectActiveSessionId(useAppStore.getState())
     if (sessionId) {
       try {
-          await fetch(`/api/chats/${sessionId}/stop`, {
+        await fetch(`/api/chats/${sessionId}/stop`, {
           method: 'POST',
-          })
+          credentials: 'same-origin',
+        })
       } catch {
         // ignore
       }

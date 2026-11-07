@@ -1,6 +1,8 @@
 'use client'
 
 import { create } from 'zustand'
+import { toast } from 'sonner'
+import { reconcileChatroom } from './reconcile-chatroom'
 import { api } from '@/lib/app/api-client'
 import type { Chatroom, ChatroomMessage, SSEEvent } from '@/types'
 import type { PendingFile } from '@/stores/use-chat-store'
@@ -148,7 +150,7 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
     if (!id) return null
     try {
       const chatroom = await api<Chatroom>('GET', `/chatrooms/${id}`)
-      set((state) => ({ chatrooms: { ...state.chatrooms, [id]: chatroom } }))
+      set((state) => ({ chatrooms: { ...state.chatrooms, [id]: reconcileChatroom(chatroom, state.chatrooms[id], state.streaming || state.discussing) } }))
       return chatroom
     } catch {
       return null
@@ -243,6 +245,8 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
       })
 
       if (!res.ok || !res.body) {
+        const detail = await res.json().catch(() => null) as { error?: string } | null
+        toast.error(detail?.error || `Could not send chatroom message (HTTP ${res.status}).`)
         return
       }
 
@@ -336,6 +340,10 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
                 }
                 return { streamingAgents: agents }
               })
+            } else if (event.t === 'err' && !agentId && event.text) {
+              // Routing/provider failures arrive without an agentId. Do not swallow them:
+              // otherwise a persisted user message looks like a silently ignored @mention.
+              toast.error(event.text)
             } else if (event.t === 'err' && agentId && event.text) {
               set((s) => {
                 const agents = new Map(s.streamingAgents)
@@ -387,6 +395,8 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
           }
         }
       }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Chatroom request failed.')
     } finally {
       if (started) {
         set({ streaming: false, streamingAgents: new Map() })

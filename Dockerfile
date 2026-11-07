@@ -34,6 +34,13 @@ FROM node:22-slim AS runner
 
 RUN apt-get update && apt-get install -y git curl unzip && rm -rf /var/lib/apt/lists/*
 
+# Codex CLI (pinned) — baked into the image so it survives container
+# recreates. Auth lives in /root/.codex, which the run command mounts from
+# the host (/opt/swarmclaw/codex), so the ChatGPT Plus login survives
+# recreates too. The volume also holds config.toml with
+# cli_auth_credentials_store = "file" so credentials stay in auth.json.
+RUN npm install -g @openai/codex@0.166.0 && codex --version && rm -rf /root/.npm
+
 WORKDIR /app
 
 COPY --from=base /app/.next/standalone ./

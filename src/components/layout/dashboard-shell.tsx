@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { initAudioContext } from '@/lib/tts'
-import { clearStoredAccessKey } from '@/lib/app/api-client'
 import { safeStorageGet, safeStorageRemove, safeStorageSet } from '@/lib/app/safe-storage'
 import { disconnectWs } from '@/lib/ws-client'
 import { useAppBootstrap } from '@/hooks/use-app-bootstrap'
@@ -104,7 +103,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const reloadApp = useCallback(() => { window.location.reload() }, [])
 
   const resetLocalSession = useCallback(() => {
-    clearStoredAccessKey()
+    safeStorageRemove('sc_access_key')
     disconnectWs()
     safeStorageRemove('sc_user')
     safeStorageRemove('sc_agent')

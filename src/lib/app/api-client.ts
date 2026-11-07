@@ -1,28 +1,10 @@
 import { fetchWithTimeout, isAbortError, isTimeoutError } from '@/lib/fetch-timeout'
-import { safeStorageGet, safeStorageSet, safeStorageRemove } from './safe-storage'
 import { sleep, hmrSingleton } from '@/lib/shared-utils'
 
-const ACCESS_KEY_STORAGE = 'sc_access_key'
 const DEFAULT_API_TIMEOUT_MS = 12_000
 const DEFAULT_GET_RETRIES = 2
 const RETRY_DELAY_BASE_MS = 300
 const inflightGetRequests = hmrSingleton('apiClient_inflightGetRequests', () => new Map<string, Promise<unknown>>())
-
-export function getStoredAccessKey(): string {
-  return safeStorageGet(ACCESS_KEY_STORAGE) || ''
-}
-
-export function setStoredAccessKey(key: string) {
-  safeStorageSet(ACCESS_KEY_STORAGE, key)
-}
-
-export function clearStoredAccessKey() {
-  safeStorageRemove(ACCESS_KEY_STORAGE)
-}
-
-function buildInflightGetKey(path: string, key: string): string {
-  return `${key}::${path}`
-}
 
 export async function api<T = unknown>(
   method: string,
@@ -30,7 +12,6 @@ export async function api<T = unknown>(
   body?: unknown,
   options?: { timeoutMs?: number; retries?: number },
 ): Promise<T> {
-  const key = getStoredAccessKey()
   const timeoutMs = Math.max(1_000, Math.trunc(options?.timeoutMs ?? DEFAULT_API_TIMEOUT_MS))
   const upperMethod = method.toUpperCase()
   const retries = Math.max(0, Math.trunc(options?.retries ?? (upperMethod === 'GET' ? DEFAULT_GET_RETRIES : 0)))
@@ -39,7 +20,6 @@ export async function api<T = unknown>(
     method: upperMethod,
     headers: {
       'Content-Type': 'application/json',
-      ...(key ? { 'X-Access-Key': key } : {}),
     },
   }
   if (body) requestInit.body = JSON.stringify(body)
@@ -50,8 +30,7 @@ export async function api<T = unknown>(
         const r = await fetchWithTimeout('/api' + path, requestInit, timeoutMs)
 
         if (r.status === 401) {
-          // Clear stored key on auth failure, redirect to login
-          clearStoredAccessKey()
+          // Redirect to login when the auth cookie is missing or invalid.
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new Event('sc_auth_required'))
           }
@@ -92,7 +71,7 @@ export async function api<T = unknown>(
     return runRequest()
   }
 
-  const inflightKey = buildInflightGetKey(path, key)
+  const inflightKey = path
   const existing = inflightGetRequests.get(inflightKey)
   if (existing) return existing as Promise<T>
 

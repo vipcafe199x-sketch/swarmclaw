@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAppStore } from '@/stores/use-app-store'
-import { getStoredAccessKey, clearStoredAccessKey, api } from '@/lib/app/api-client'
-import { safeStorageGet, safeStorageSet } from '@/lib/app/safe-storage'
+import { api } from '@/lib/app/api-client'
+import { safeStorageGet, safeStorageSet, safeStorageRemove } from '@/lib/app/safe-storage'
 import { connectWs, disconnectWs } from '@/lib/ws-client'
 import { fetchWithTimeout, isAbortError, isTimeoutError } from '@/lib/fetch-timeout'
 import { isDevelopmentLikeRuntime } from '@/lib/runtime/runtime-env'
@@ -35,6 +35,8 @@ export function useAppBootstrap() {
   const mountedRef = useMountedRef()
 
   const checkAuth = useCallback(async () => {
+    // Remove legacy plaintext credentials without changing the existing auth cookie.
+    safeStorageRemove('sc_access_key')
     try {
       const res = await fetchWithTimeout('/api/auth', {}, AUTH_CHECK_TIMEOUT_MS)
       const data = await res.json().catch((err) => {
@@ -49,43 +51,13 @@ export function useAppBootstrap() {
       }
     } catch (err) {
       if (!isExpectedAuthProbeError(err)) {
-        console.warn('Auth check probe failed, falling back to stored key:', err)
+        console.warn('Auth check probe failed:', err)
       }
     }
 
-    const key = getStoredAccessKey()
-    if (!key) {
-      if (!mountedRef.current) return
-      setAuthenticated(false)
-      setAuthChecked(true)
-      return
-    }
-
-    try {
-      const res = await fetchWithTimeout('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key }),
-      }, AUTH_CHECK_TIMEOUT_MS)
-      if (res.ok) {
-        if (!mountedRef.current) return
-        setAuthenticated(true)
-      } else {
-        clearStoredAccessKey()
-        if (!mountedRef.current) return
-        setAuthenticated(false)
-      }
-    } catch (err) {
-      if (!isExpectedAuthProbeError(err)) {
-        console.warn('Stored key auth check failed:', err)
-      }
-      clearStoredAccessKey()
-      if (!mountedRef.current) return
-      setAuthenticated(false)
-    } finally {
-      if (!mountedRef.current) return
-      setAuthChecked(true)
-    }
+    if (!mountedRef.current) return
+    setAuthenticated(false)
+    setAuthChecked(true)
   }, [mountedRef])
 
   useEffect(() => {

@@ -141,3 +141,8 @@ export async function POST(req: Request) {
   startDaemonAfterAuth()
   return setAuthCookie(NextResponse.json({ ok: true }), req, key)
 }
+
+/** DELETE /api/auth — end the browser session without changing the access key. */
+export async function DELETE() {
+  return clearAuthCookie(NextResponse.json({ ok: true }))
+}

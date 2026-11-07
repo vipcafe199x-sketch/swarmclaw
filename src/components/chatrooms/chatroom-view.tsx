@@ -393,13 +393,13 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
   return (
     <div className="flex-1 flex min-h-0 min-w-0">
       <div className="min-w-0 flex-1 flex flex-col h-full">
-        <div className="chatroom-header flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] shrink-0">
+        <div className="chatroom-header flex items-center gap-3 px-4 py-2 md:py-3 border-b border-white/[0.06] shrink-0">
           {onBack && (
             <button
               type="button"
               onClick={onBack}
               aria-label="Back to chatrooms"
-              className="shrink-0 flex h-10 w-10 items-center justify-center rounded-[10px] border border-white/[0.08] bg-white/[0.03] text-text-2 hover:bg-white/[0.06] cursor-pointer transition-colors"
+              className="shrink-0 flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-[10px] border border-white/[0.08] bg-white/[0.03] text-text-2 hover:bg-white/[0.06] cursor-pointer transition-colors"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="19" y1="12" x2="5" y2="12" />
@@ -588,7 +588,7 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
               onClick={() => setHeaderMenuOpen((o) => !o)}
               aria-label="More actions"
               aria-expanded={headerMenuOpen}
-              className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-white/[0.08] bg-white/[0.03] text-text-2 hover:bg-white/[0.06] cursor-pointer transition-colors"
+              className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-[10px] border border-white/[0.08] bg-white/[0.03] text-text-2 hover:bg-white/[0.06] cursor-pointer transition-colors"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="12" cy="5" r="1.8" />

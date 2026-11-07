@@ -808,4 +808,10 @@ textarea:hover::-webkit-scrollbar { width: 6px; }
   /* Mode badges must not break mid-word (e.g. "AUTO-ADDRESS ON" splitting
      into three lines); they wrap to a new line as whole units instead. */
   .chatroom-header-badges span { white-space: nowrap; }
+  /* Compact composer on phones: shorter input field so more messages fit. */
+  .chatroom-composer-field { min-height: 48px; }
+}
+
+@media (min-width: 768px) {
+  .chatroom-composer-field { min-height: 56px; }
 }

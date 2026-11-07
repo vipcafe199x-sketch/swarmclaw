@@ -295,7 +295,7 @@ export function ChatroomInput({ agents, onSend, disabled, onBreakoutRequest }: P
   }
 
   return (
-    <div className="relative px-4 py-3 border-t border-white/[0.06]">
+    <div className="relative px-4 py-2 md:py-3 border-t border-white/[0.06]">
       {slashDropdownVisible && (
         <div className="absolute bottom-full left-4 right-4 mb-1 bg-raised border border-white/[0.1] rounded-[8px] shadow-xl max-h-[200px] overflow-y-auto z-50">
           {slashItems.map((item, index) => (
@@ -454,7 +454,7 @@ export function ChatroomInput({ agents, onSend, disabled, onBreakoutRequest }: P
       )}
 
       {visibleQueuedMessages.length === 0 && !disabled && (
-        <div className="mb-2 flex items-center justify-between gap-2 rounded-[10px] border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+        <div className="mb-2 hidden md:flex items-center justify-between gap-2 rounded-[10px] border border-white/[0.06] bg-white/[0.03] px-3 py-2">
           <span className="text-[11px] text-text-3">
             {streaming
               ? 'Current round is still running. Press send to queue the next message.'
@@ -497,7 +497,7 @@ export function ChatroomInput({ agents, onSend, disabled, onBreakoutRequest }: P
           </div>
         ) : undefined}
         footer={(
-          <div className="flex items-center gap-1 px-4 pb-3.5">
+          <div className="flex items-center gap-1 px-4 pb-2.5 md:pb-3.5">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -559,14 +559,14 @@ export function ChatroomInput({ agents, onSend, disabled, onBreakoutRequest }: P
           </div>
         )}
         hint={disabled ? 'Live rooms are watch-first' : 'Shift+Enter for newline · /breakout starts a focused session'}
+        hintClassName="hidden md:block"
       >
         <div className="relative">
           {/* Highlight mirror — renders the visible text while the textarea handles input and caret. */}
           <div
             ref={mirrorRef}
             aria-hidden
-            className="absolute inset-0 px-5 pt-4 pb-2 text-base md:text-[15px] leading-[1.55] text-text break-words whitespace-pre-wrap pointer-events-none overflow-hidden"
-            style={{ minHeight: '56px' }}
+            className="chatroom-composer-field absolute inset-0 px-5 pt-3 md:pt-4 pb-2 text-base md:text-[15px] leading-[1.55] text-text break-words whitespace-pre-wrap pointer-events-none overflow-hidden"
           >
             {highlightedSegments}
           </div>
@@ -580,8 +580,8 @@ export function ChatroomInput({ agents, onSend, disabled, onBreakoutRequest }: P
             placeholder="Ask the room anything... Use @ to mention agents or /breakout to focus the room"
             disabled={disabled}
             rows={1}
-            className="relative w-full resize-none border-none bg-transparent px-5 pt-4 pb-2 text-base md:text-[15px] text-transparent caret-white placeholder:text-text-3/70 focus:outline-none selection:bg-accent-bright/20 max-h-[160px] leading-[1.55] disabled:opacity-50"
-            style={{ minHeight: '56px', caretColor: 'rgb(244 244 245)' }}
+            className="chatroom-composer-field relative w-full resize-none border-none bg-transparent px-5 pt-3 md:pt-4 pb-2 text-base md:text-[15px] text-transparent caret-white placeholder:text-text-3/70 focus:outline-none selection:bg-accent-bright/20 max-h-[160px] leading-[1.55] disabled:opacity-50"
+            style={{ caretColor: 'rgb(244 244 245)' }}
           />
         </div>
       </ComposerShell>

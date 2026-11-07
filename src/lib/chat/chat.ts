@@ -1,5 +1,4 @@
 import type { SSEEvent } from '@/types'
-import { getStoredAccessKey } from '@/lib/app/api-client'
 
 interface StreamChatOptions {
   internal?: boolean
@@ -26,12 +25,11 @@ export async function streamChat(
     opts = optionsOrFiles
   }
 
-  const key = getStoredAccessKey()
   const res = await fetch(`/api/chats/${sessionId}/chat`, {
     method: 'POST',
+    credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
-      ...(key ? { 'X-Access-Key': key } : {}),
     },
     body: JSON.stringify({
       message,

@@ -1,5 +1,5 @@
 import { fetchWithTimeout, isAbortError, isTimeoutError } from '@/lib/fetch-timeout'
-import { safeStorageGet, safeStorageSet, safeStorageRemove } from './safe-storage'
+import { safeStorageRemove } from './safe-storage'
 import { sleep, hmrSingleton } from '@/lib/shared-utils'
 
 const ACCESS_KEY_STORAGE = 'sc_access_key'
@@ -8,20 +8,9 @@ const DEFAULT_GET_RETRIES = 2
 const RETRY_DELAY_BASE_MS = 300
 const inflightGetRequests = hmrSingleton('apiClient_inflightGetRequests', () => new Map<string, Promise<unknown>>())
 
-export function getStoredAccessKey(): string {
-  return safeStorageGet(ACCESS_KEY_STORAGE) || ''
-}
-
-export function setStoredAccessKey(key: string) {
-  safeStorageSet(ACCESS_KEY_STORAGE, key)
-}
-
+// Remove only the legacy browser copy; the HttpOnly sc_auth cookie remains untouched.
 export function clearStoredAccessKey() {
   safeStorageRemove(ACCESS_KEY_STORAGE)
-}
-
-function buildInflightGetKey(path: string, key: string): string {
-  return `${key}::${path}`
 }
 
 export async function api<T = unknown>(
@@ -30,16 +19,15 @@ export async function api<T = unknown>(
   body?: unknown,
   options?: { timeoutMs?: number; retries?: number },
 ): Promise<T> {
-  const key = getStoredAccessKey()
   const timeoutMs = Math.max(1_000, Math.trunc(options?.timeoutMs ?? DEFAULT_API_TIMEOUT_MS))
   const upperMethod = method.toUpperCase()
   const retries = Math.max(0, Math.trunc(options?.retries ?? (upperMethod === 'GET' ? DEFAULT_GET_RETRIES : 0)))
 
   const requestInit: RequestInit = {
     method: upperMethod,
+    credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
-      ...(key ? { 'X-Access-Key': key } : {}),
     },
   }
   if (body) requestInit.body = JSON.stringify(body)
@@ -50,7 +38,7 @@ export async function api<T = unknown>(
         const r = await fetchWithTimeout('/api' + path, requestInit, timeoutMs)
 
         if (r.status === 401) {
-          // Clear stored key on auth failure, redirect to login
+          // Remove any legacy browser copy on auth failure, then redirect to login
           clearStoredAccessKey()
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new Event('sc_auth_required'))
@@ -92,7 +80,7 @@ export async function api<T = unknown>(
     return runRequest()
   }
 
-  const inflightKey = buildInflightGetKey(path, key)
+  const inflightKey = path
   const existing = inflightGetRequests.get(inflightKey)
   if (existing) return existing as Promise<T>
 

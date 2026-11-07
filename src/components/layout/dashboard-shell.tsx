@@ -103,7 +103,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   const reloadApp = useCallback(() => { window.location.reload() }, [])
 
-  const resetLocalSession = useCallback(() => {
+  const resetLocalSession = useCallback(async () => {
+    // Explicit reset signs out on the server as well as removing legacy local credentials.
+    try {
+      await fetch('/api/auth', { method: 'DELETE', credentials: 'same-origin' })
+    } catch {
+      // Local cleanup must still succeed when the network is unavailable.
+    }
     clearStoredAccessKey()
     disconnectWs()
     safeStorageRemove('sc_user')

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAppStore } from '@/stores/use-app-store'
-import { getStoredAccessKey, clearStoredAccessKey, api } from '@/lib/app/api-client'
+import { clearStoredAccessKey, api } from '@/lib/app/api-client'
 import { safeStorageGet, safeStorageSet } from '@/lib/app/safe-storage'
 import { connectWs, disconnectWs } from '@/lib/ws-client'
 import { fetchWithTimeout, isAbortError, isTimeoutError } from '@/lib/fetch-timeout'
@@ -35,56 +35,25 @@ export function useAppBootstrap() {
   const mountedRef = useMountedRef()
 
   const checkAuth = useCallback(async () => {
+    // Purge old localStorage credentials without reading/reusing them.
+    // This must not alter the existing HttpOnly sc_auth session cookie.
+    clearStoredAccessKey()
     try {
-      const res = await fetchWithTimeout('/api/auth', {}, AUTH_CHECK_TIMEOUT_MS)
+      const res = await fetchWithTimeout('/api/auth', { credentials: 'same-origin' }, AUTH_CHECK_TIMEOUT_MS)
       const data = await res.json().catch((err) => {
         console.warn('Failed to parse /api/auth JSON:', err)
         return {}
       })
-      if (data?.authenticated === true) {
-        if (!mountedRef.current) return
-        setAuthenticated(true)
-        setAuthChecked(true)
-        return
-      }
-    } catch (err) {
-      if (!isExpectedAuthProbeError(err)) {
-        console.warn('Auth check probe failed, falling back to stored key:', err)
-      }
-    }
-
-    const key = getStoredAccessKey()
-    if (!key) {
       if (!mountedRef.current) return
-      setAuthenticated(false)
-      setAuthChecked(true)
-      return
-    }
-
-    try {
-      const res = await fetchWithTimeout('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key }),
-      }, AUTH_CHECK_TIMEOUT_MS)
-      if (res.ok) {
-        if (!mountedRef.current) return
-        setAuthenticated(true)
-      } else {
-        clearStoredAccessKey()
-        if (!mountedRef.current) return
-        setAuthenticated(false)
-      }
+      setAuthenticated(data?.authenticated === true)
     } catch (err) {
       if (!isExpectedAuthProbeError(err)) {
-        console.warn('Stored key auth check failed:', err)
+        console.warn('Auth check probe failed:', err)
       }
-      clearStoredAccessKey()
       if (!mountedRef.current) return
       setAuthenticated(false)
     } finally {
-      if (!mountedRef.current) return
-      setAuthChecked(true)
+      if (mountedRef.current) setAuthChecked(true)
     }
   }, [mountedRef])
 

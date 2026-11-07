@@ -22,7 +22,6 @@ import {
   type QueuedSessionMessage,
 } from '@/lib/chat/queued-message-queue'
 import { speak } from '../lib/tts'
-import { getStoredAccessKey } from '@/lib/app/api-client'
 import { useAppStore } from './use-app-store'
 import { selectActiveSessionId } from './slices/session-slice'
 import { getSoundEnabled, setSoundEnabled, playStreamStart, playStreamEnd, playToolComplete, playError } from '@/lib/notifications/notification-sounds'
@@ -708,20 +707,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const sessionId = selectActiveSessionId(useAppStore.getState())
     if (!sessionId) return
     try {
-      const key = getStoredAccessKey()
       const res = await fetch(`/api/chats/${sessionId}/edit-resend`, {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
-          ...(key ? { 'X-Access-Key': key } : {}),
         },
         body: JSON.stringify({ messageIndex, newText }),
       })
       if (!res.ok) return
       // Reload messages from server (truncated)
-      const msgsRes = await fetch(`/api/chats/${sessionId}/messages`, {
-        headers: key ? { 'X-Access-Key': key } : undefined,
-      })
+      const msgsRes = await fetch(`/api/chats/${sessionId}/messages`, { credentials: 'same-origin' })
       if (msgsRes.ok) {
         const msgs = await msgsRes.json()
         get().setMessages(msgs, { startIndex: 0, totalMessages: msgs.length })
@@ -738,18 +734,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const sessionId = selectActiveSessionId(useAppStore.getState())
     if (!sessionId) return
     try {
-      const key = getStoredAccessKey()
       const res = await fetch(`/api/chats/${sessionId}/retry`, {
         method: 'POST',
-        headers: key ? { 'X-Access-Key': key } : undefined,
+        credentials: 'same-origin',
       })
       if (!res.ok) return
       const { message, imagePath } = await res.json()
       if (!message) return
       // Reload messages from server (without the popped ones)
-      const msgsRes = await fetch(`/api/chats/${sessionId}/messages`, {
-        headers: key ? { 'X-Access-Key': key } : undefined,
-      })
+      const msgsRes = await fetch(`/api/chats/${sessionId}/messages`, { credentials: 'same-origin' })
       if (msgsRes.ok) {
         const msgs = await msgsRes.json()
         get().setMessages(msgs, { startIndex: 0, totalMessages: msgs.length })
@@ -851,10 +844,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const marker: Message = { role: 'user', text: '', kind: 'context-clear', time: Date.now() }
     set((s) => ({ messages: [...s.messages, marker] }))
     try {
-      const key = getStoredAccessKey()
       await fetch(`/api/chats/${sessionId}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(key ? { 'X-Access-Key': key } : {}) },
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind: 'context-clear' }),
       })
     } catch {
@@ -872,11 +865,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (!sessionId) return
     set({ loadingMore: true })
     try {
-      const key = getStoredAccessKey()
       const currentStartIndex = messageStartIndex
-      const res = await fetch(`/api/chats/${sessionId}/messages?limit=100&before=${currentStartIndex}`, {
-        headers: key ? { 'X-Access-Key': key } : undefined,
-      })
+      const res = await fetch(`/api/chats/${sessionId}/messages?limit=100&before=${currentStartIndex}`, { credentials: 'same-origin' })
       if (res.ok) {
         const data = await res.json() as { messages: Message[]; total: number; hasMore: boolean; startIndex: number }
         set((s) => {
@@ -906,10 +896,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const sessionId = selectActiveSessionId(useAppStore.getState())
     if (sessionId) {
       try {
-        const key = getStoredAccessKey()
         await fetch(`/api/chats/${sessionId}/stop`, {
           method: 'POST',
-          headers: key ? { 'X-Access-Key': key } : undefined,
+          credentials: 'same-origin',
         })
       } catch {
         // ignore

@@ -1,13 +1,11 @@
 import type { UploadResult } from '../types'
-import { getStoredAccessKey } from './app/api-client'
 
 export async function uploadImage(file: File): Promise<UploadResult> {
-  const key = getStoredAccessKey()
   const res = await fetch('/api/upload', {
     method: 'POST',
+    credentials: 'same-origin',
     headers: {
       'X-Filename': file.name,
-      ...(key ? { 'X-Access-Key': key } : {}),
     },
     body: file,
   })

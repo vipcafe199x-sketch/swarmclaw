@@ -5,6 +5,7 @@ import { useAppStore } from '@/stores/use-app-store'
 import { BottomSheet } from '@/components/shared/bottom-sheet'
 import { AgentAvatar } from '@/components/agents/agent-avatar'
 import { api } from '@/lib/app/api-client'
+import { safeStorageRemove } from '@/lib/app/safe-storage'
 import { toast } from 'sonner'
 
 interface Props {
@@ -49,9 +50,15 @@ export function ProfileSheet({ open, onClose }: Props) {
     }
   }
 
-  const handleSignOut = () => {
-    setUser(null)
-    onClose()
+  const handleSignOut = async () => {
+    safeStorageRemove('sc_access_key')
+    try {
+      await api('DELETE', '/auth')
+      setUser(null)
+      window.location.assign('/login')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to sign out')
+    }
   }
 
   return (

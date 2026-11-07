@@ -29,6 +29,22 @@ describe('proxy', () => {
     assert.equal(response.headers.get('vary'), 'Origin')
   })
 
+  for (const path of ['/api/upload', '/api/chats/session/chat', '/api/chatrooms/room/chat', '/api/chatrooms/room/discuss']) {
+    it(`authenticates ${path} using only the existing cookie`, () => {
+      process.env.ACCESS_KEY = 'top-secret'
+      const response = proxy(new NextRequest(`http://localhost${path}`, {
+        method: 'POST',
+        headers: { cookie: 'sc_auth=top-secret' },
+      }))
+      assert.equal(response.status, 200)
+    })
+
+    it(`rejects ${path} without credentials`, () => {
+      process.env.ACCESS_KEY = 'top-secret'
+      assert.equal(proxy(new NextRequest(`http://localhost${path}`, { method: 'POST' })).status, 401)
+    })
+  }
+
   it('prefers the auth cookie over a stale access-key header', () => {
     process.env.ACCESS_KEY = 'top-secret'
 

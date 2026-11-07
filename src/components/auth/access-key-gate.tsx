@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { setStoredAccessKey } from '@/lib/app/api-client'
 import { fetchWithTimeout, isAbortError, isTimeoutError } from '@/lib/fetch-timeout'
 
 interface AccessKeyGateProps {
@@ -65,7 +64,6 @@ export function AccessKeyGate({ onAuthenticated }: AccessKeyGateProps) {
         body: JSON.stringify({ key: trimmed }),
       }, AUTH_CHECK_TIMEOUT_MS)
       if (res.ok) {
-        setStoredAccessKey(trimmed)
         onAuthenticated()
       } else {
         const payload = await res.json().catch(() => null) as { error?: unknown } | null
@@ -204,7 +202,6 @@ export function AccessKeyGate({ onAuthenticated }: AccessKeyGateProps) {
                                 body: JSON.stringify({ key: trimmed, override: true }),
                               }, AUTH_CHECK_TIMEOUT_MS)
                               if (res.ok) {
-                                setStoredAccessKey(trimmed)
                                 onAuthenticated()
                               } else {
                                 const payload = await res.json().catch(() => null) as { error?: unknown } | null

@@ -4,8 +4,8 @@ import { runWithTempDataDir } from '@/lib/server/test-utils/run-with-temp-data-d
 
 test('discussion mode does not replay the last user question without a new prompt', () => {
   const output = runWithTempDataDir<{ status: number; messageCount: number }>(`
-    const storage = await import('./src/lib/server/storage')
-    const route = await import('./src/app/api/chatrooms/[id]/discuss/route')
+    const storage = await import('./src/lib/server/storage').then((mod) => mod.default || mod)
+    const route = await import('./src/app/api/chatrooms/[id]/discuss/route').then((mod) => mod.default || mod)
     const now = Date.now()
     storage.saveAgents({
       alpha: { id: 'alpha', name: 'Alpha', provider: 'openai', model: 'gpt-4o', createdAt: now, updatedAt: now },
@@ -32,10 +32,10 @@ test('discussion mode does not replay the last user question without a new promp
 
 test('discussion emits each completed agent reply and preserves a fresh user prompt', () => {
   const output = runWithTempDataDir<{ userTexts: string[]; replyCount: number; completedCount: number; doneLast: boolean }>(`
-    const storage = await import('./src/lib/server/storage')
-    const providers = await import('@/lib/providers')
-    const route = await import('./src/app/api/chatrooms/[id]/discuss/route')
-    const streams = await import('@/lib/server/chat-execution/stream-agent-chat')
+    const storage = await import('./src/lib/server/storage').then((mod) => mod.default || mod)
+    const providers = await import('@/lib/providers').then((mod) => mod.default || mod)
+    const route = await import('./src/app/api/chatrooms/[id]/discuss/route').then((mod) => mod.default || mod)
+    const streams = await import('@/lib/server/chat-execution/stream-agent-chat').then((mod) => mod.default || mod)
     providers.PROVIDERS['discussion-test-provider'] = {
       id: 'discussion-test-provider', name: 'Test Provider',
       models: ['test-model'], requiresApiKey: false, requiresEndpoint: false,

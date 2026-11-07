@@ -3,7 +3,7 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import { reconcileChatroom } from './reconcile-chatroom'
-import { api, getStoredAccessKey } from '@/lib/app/api-client'
+import { api } from '@/lib/app/api-client'
 import type { Chatroom, ChatroomMessage, SSEEvent } from '@/types'
 import type { PendingFile } from '@/stores/use-chat-store'
 
@@ -230,13 +230,11 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
     const optimisticText = text.trim() || 'See attached file(s).'
     let started = false
 
-    const key = getStoredAccessKey()
     try {
       const res = await fetch(`/api/chatrooms/${targetChatroomId}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(key ? { 'X-Access-Key': key } : {}),
         },
         body: JSON.stringify({
           text,
@@ -441,14 +439,12 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
     const targetChatroomId = currentChatroomId
     const abort = new AbortController()
     set({ discussing: true, discussAbort: abort })
-    const key = getStoredAccessKey()
     let started = false
     try {
       const res = await fetch(`/api/chatrooms/${targetChatroomId}/discuss`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(key ? { 'X-Access-Key': key } : {}),
         },
         body: JSON.stringify(settings),
         signal: abort.signal,

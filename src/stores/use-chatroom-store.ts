@@ -52,6 +52,8 @@ interface ChatroomState {
   /** A self-discussion run is in progress (Tự thảo luận). */
   discussing: boolean
   discussAbort: AbortController | null
+  discussionSettings: DiscussSettings | null
+  discussionRoomId: string | null
 
   // File uploads
   pendingFiles: PendingFile[]
@@ -76,6 +78,8 @@ interface ChatroomState {
   setCurrentChatroom: (id: string | null) => void
   sendMessage: (text: string) => Promise<void>
   startDiscussion: (settings: DiscussSettings) => Promise<void>
+  enableDiscussion: (settings: DiscussSettings) => void
+  disableDiscussion: () => void
   stopDiscussion: () => void
   toggleReaction: (messageId: string, emoji: string) => Promise<void>
   togglePin: (messageId: string) => Promise<void>
@@ -104,6 +108,8 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
   editingChatroomId: null,
   discussing: false,
   discussAbort: null,
+  discussionSettings: null,
+  discussionRoomId: null,
 
   // File uploads
   pendingFiles: [],
@@ -194,6 +200,22 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
         pendingFiles: [],
         replyingTo: null,
       }))
+      return
+    }
+
+    // Arming discussion never replays history: only a newly submitted user prompt starts it.
+    const { discussionSettings, discussionRoomId } = get()
+    if (discussionSettings && discussionRoomId === targetChatroomId) {
+      if (pendingFiles.length) {
+        // Preserve attachments through the discussion endpoint.
+        await get().startDiscussion({
+          ...discussionSettings, topic: text,
+          imagePath: pendingFiles[0]?.file.type.startsWith('image/') ? pendingFiles[0].path : undefined,
+          attachedFiles: pendingFiles.map((f) => f.path),
+        } as DiscussSettings)
+      } else {
+        await get().startDiscussion({ ...discussionSettings, topic: text })
+      }
       return
     }
 
@@ -326,6 +348,23 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
                 return { streamingAgents: agents }
               })
             } else if (event.t === 'cr_agent_done' && agentId) {
+              // The server sends the persisted message with each completed turn.
+              // Render it immediately rather than waiting for the entire discussion/batch.
+              const completed = (event as SSEEvent & { message?: ChatroomMessage }).message
+              if (completed) {
+                set((s) => {
+                  const room = s.chatrooms[targetChatroomId]
+                  if (!room || room.messages.some((msg) => msg.id === completed.id)) return s
+                  return { chatrooms: {
+                    ...s.chatrooms,
+                    [targetChatroomId]: {
+                      ...room,
+                      messages: [...room.messages, completed],
+                      updatedAt: completed.time,
+                    },
+                  } }
+                })
+              }
               const currentAgent = get().streamingAgents.get(agentId)
               if (currentAgent?.error) {
                 setTimeout(() => {
@@ -373,12 +412,22 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
     }
   },
 
+  enableDiscussion: (settings) => {
+    const { currentChatroomId } = get()
+    if (!currentChatroomId) return
+    set({ discussionSettings: { ...settings }, discussionRoomId: currentChatroomId })
+  },
+  disableDiscussion: () => {
+    get().stopDiscussion()
+    set({ discussionSettings: null, discussionRoomId: null })
+  },
+
   /** Start a self-discussion run (Tự thảo luận): agents take turns in the
    *  chosen order, each responding to the previous speaker. Streams the same
    *  SSE events as sendMessage so the typing/streaming UI is reused. */
   startDiscussion: async (settings) => {
     const { currentChatroomId, streaming, discussing } = get()
-    if (!currentChatroomId || streaming || discussing) return
+    if (!currentChatroomId || streaming || discussing || !settings.topic?.trim()) return
     const targetChatroomId = currentChatroomId
     const abort = new AbortController()
     set({ discussing: true, discussAbort: abort })
@@ -398,7 +447,30 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
         return
       }
       started = true
-      set({ streaming: true, streamingAgents: new Map() })
+      set((s) => {
+        const room = s.chatrooms[targetChatroomId]
+        const optimisticMessage: ChatroomMessage = {
+          id: `local-${Date.now()}`,
+          senderId: 'user',
+          senderName: 'You',
+          role: 'user',
+          text: settings.topic!.trim(),
+          mentions: [],
+          reactions: [],
+          time: Date.now(),
+        }
+        return {
+          streaming: true, streamingAgents: new Map(),
+          pendingFiles: [], replyingTo: null,
+          chatrooms: room ? {
+            ...s.chatrooms,
+            [targetChatroomId]: {
+              ...room, messages: [...room.messages, optimisticMessage],
+              updatedAt: optimisticMessage.time,
+            },
+          } : s.chatrooms,
+        }
+      })
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
@@ -464,6 +536,23 @@ export const useChatroomStore = create<ChatroomState>((set, get) => ({
                 return { streamingAgents: agents }
               })
             } else if (event.t === 'cr_agent_done' && agentId) {
+              // The server sends the persisted message with each completed turn.
+              // Render it immediately rather than waiting for the entire discussion/batch.
+              const completed = (event as SSEEvent & { message?: ChatroomMessage }).message
+              if (completed) {
+                set((s) => {
+                  const room = s.chatrooms[targetChatroomId]
+                  if (!room || room.messages.some((msg) => msg.id === completed.id)) return s
+                  return { chatrooms: {
+                    ...s.chatrooms,
+                    [targetChatroomId]: {
+                      ...room,
+                      messages: [...room.messages, completed],
+                      updatedAt: completed.time,
+                    },
+                  } }
+                })
+              }
               const currentAgent = get().streamingAgents.get(agentId)
               if (currentAgent?.error) {
                 setTimeout(() => {

@@ -102,8 +102,12 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
   const streamingAgents = useChatroomStore((s) => s.streamingAgents)
   const sendMessage = useChatroomStore((s) => s.sendMessage)
   const discussing = useChatroomStore((s) => s.discussing)
-  const startDiscussion = useChatroomStore((s) => s.startDiscussion)
+  const enableDiscussion = useChatroomStore((s) => s.enableDiscussion)
+  const disableDiscussion = useChatroomStore((s) => s.disableDiscussion)
+  const discussionRoomId = useChatroomStore((s) => s.discussionRoomId)
+  const discussionSettings = useChatroomStore((s) => s.discussionSettings)
   const stopDiscussion = useChatroomStore((s) => s.stopDiscussion)
+  const discussionEnabled = discussionRoomId === currentChatroomId && !!discussionSettings
   const toggleReaction = useChatroomStore((s) => s.toggleReaction)
   const togglePin = useChatroomStore((s) => s.togglePin)
   const setReplyingTo = useChatroomStore((s) => s.setReplyingTo)
@@ -518,13 +522,13 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
                   Watch Session
                 </button>
               )}
-              {discussing ? (
+              {discussionEnabled ? (
                 <button
                   type="button"
-                  onClick={() => stopDiscussion()}
+                  onClick={() => disableDiscussion()}
                   className="shrink-0 rounded-[9px] border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-[11px] font-600 text-red-300 hover:bg-red-500/20 cursor-pointer transition-colors"
                 >
-                  Dừng thảo luận
+                  Tắt thảo luận
                 </button>
               ) : (
                 <button
@@ -628,13 +632,13 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
                         Watch Session
                       </button>
                     )}
-                    {discussing ? (
+                    {discussionEnabled ? (
                       <button
                         type="button"
-                        onClick={() => { setHeaderMenuOpen(false); stopDiscussion() }}
+                        onClick={() => { setHeaderMenuOpen(false); disableDiscussion() }}
                         className="w-full text-left px-3 py-2.5 rounded-[8px] text-[13px] font-600 text-red-300 hover:bg-white/[0.06] cursor-pointer transition-colors"
                       >
-                        Dừng thảo luận
+                        Tắt thảo luận
                       </button>
                     ) : (
                       <button
@@ -830,15 +834,15 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
           </div>
         )}
 
-        {discussing && (
+        {discussionEnabled && (
           <div className="border-t border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-2 flex items-center gap-2">
-            <span className="text-[12px] text-emerald-300">Đang thảo luận… các agent sẽ tự nối tiếp nhau.</span>
+            <span className="text-[12px] text-emerald-300">{discussing ? 'Đang thảo luận… các agent lần lượt trả lời.' : 'Đã bật thảo luận — chờ câu hỏi mới của bạn.'}</span>
             <button
               type="button"
-              onClick={() => stopDiscussion()}
+              onClick={() => disableDiscussion()}
               className="ml-auto shrink-0 rounded-[8px] border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[11px] font-600 text-red-300 hover:bg-red-500/20 cursor-pointer"
             >
-              Dừng
+              Tắt
             </button>
           </div>
         )}
@@ -892,7 +896,7 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
         open={discussOpen}
         onClose={() => setDiscussOpen(false)}
         title="Tự thảo luận"
-        description="Các agent tự nói chuyện với nhau theo thứ tự, thằng sau phản hồi ý thằng trước. Chủ đề là câu hỏi mới nhất trong phòng."
+        description="Bật chế độ thảo luận rồi gửi một câu hỏi mới. Không tự chạy lại câu hỏi cũ."
       >
         <div className="space-y-4 px-1 pb-2">
           <div>
@@ -988,7 +992,7 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
               type="button"
               onClick={() => {
                 setDiscussOpen(false)
-                void startDiscussion({
+                enableDiscussion({
                   mainAgentId: discussMain,
                   order: discussOrder,
                   maxRounds: discussRounds,
@@ -997,7 +1001,7 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
               }}
               className="flex-1 rounded-[10px] bg-emerald-500/90 px-4 py-2.5 text-[13px] font-700 text-white hover:bg-emerald-500 cursor-pointer"
             >
-              Bắt đầu thảo luận
+              Bật và chờ câu hỏi mới
             </button>
             <button
               type="button"

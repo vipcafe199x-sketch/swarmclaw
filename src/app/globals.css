@@ -801,4 +801,15 @@ textarea:hover::-webkit-scrollbar { width: 6px; }
   .chatroom-prose ol { list-style: decimal; padding-left: 1.25em; margin: 4px 0; }
   .chatroom-prose li { margin: 2px 0; }
   .chatroom-prose li::marker { color: var(--text-3, #8b8ba3); }
+  /* Chatroom header on mobile: two rows so the action buttons never crowd
+     or overlap the mode badges. Row 1 = back + room name + badges; row 2 =
+     the action buttons on their own full-width row, scrollable sideways if
+     they still do not fit. Desktop unchanged (single row). */
+  .chatroom-header { flex-wrap: wrap; row-gap: 8px; }
+  .chatroom-header-actions { flex: 1 1 100%; min-width: 0; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; scrollbar-width: none; }
+  .chatroom-header-actions::-webkit-scrollbar { display: none; }
+  .chatroom-header-actions button { min-height: 40px; min-width: 40px; flex-shrink: 0; }
+  /* Mode badges must not break mid-word (e.g. "AUTO-ADDRESS ON" splitting
+     into three lines); they wrap to a new line as whole units instead. */
+  .chatroom-header-badges span { white-space: nowrap; }
 }

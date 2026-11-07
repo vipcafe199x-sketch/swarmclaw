@@ -382,7 +382,7 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
   return (
     <div className="flex-1 flex min-h-0 min-w-0">
       <div className="min-w-0 flex-1 flex flex-col h-full">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] shrink-0">
+        <div className="chatroom-header flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] shrink-0">
           {onBack && (
             <button
               type="button"
@@ -403,7 +403,7 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-[14px] font-700 text-text truncate">{chatroom.name}</h3>
-            <div className="flex flex-wrap items-center gap-2 mt-1">
+            <div className="chatroom-header-badges flex flex-wrap items-center gap-2 mt-1">
               <p className="text-[11px] text-text-3 truncate">
                 {isStructuredSessionRoom
                   ? `Temporary live room${linkedRun?.title ? ` · ${linkedRun.title}` : ''}`
@@ -476,6 +476,7 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
             )}
           </div>
 
+          <div className="chatroom-header-actions flex items-center gap-2 shrink-0">
           {isStructuredSessionRoom ? (
             <>
               {chatroom.protocolRunId && (
@@ -567,6 +568,7 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
               </svg>
             </button>
           )}
+          </div>
         </div>
 
         {isStructuredSessionRoom && (

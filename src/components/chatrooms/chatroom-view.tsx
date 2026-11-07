@@ -122,6 +122,8 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
   const [isNearBottom, setIsNearBottom] = useState(true)
   const [agentMoments, setAgentMoments] = useState<Record<string, MomentType>>({})
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
+  const headerMenuRef = useRef<HTMLDivElement>(null)
   const [structuredSessionOpen, setStructuredSessionOpen] = useState(false)
   const [structuredSessionVariant, setStructuredSessionVariant] = useState<'default' | 'breakout'>('default')
   const [structuredSessionContext, setStructuredSessionContext] = useState<StructuredSessionLaunchContext | null>(null)
@@ -314,6 +316,15 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
     }
   }, [chatroom, isNearBottom, scrollToLatest, streamingAgents.size])
 
+  useEffect(() => {
+    if (!headerMenuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) setHeaderMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [headerMenuOpen])
+
   if (!chatroom) {
     return (
       <div className="flex-1 flex items-center justify-center px-8">
@@ -476,7 +487,7 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
             )}
           </div>
 
-          <div className="chatroom-header-actions flex items-center gap-2 shrink-0">
+          <div className="hidden md:flex items-center gap-2 shrink-0">
           {isStructuredSessionRoom ? (
             <>
               {chatroom.protocolRunId && (
@@ -568,6 +579,117 @@ export function ChatroomView({ onBack }: { onBack?: () => void }) {
               </svg>
             </button>
           )}
+          </div>
+
+          {/* Mobile actions: single "…" overflow menu (collapsed, like the agent chat) */}
+          <div className="relative shrink-0 md:hidden" ref={headerMenuRef}>
+            <button
+              type="button"
+              onClick={() => setHeaderMenuOpen((o) => !o)}
+              aria-label="More actions"
+              aria-expanded={headerMenuOpen}
+              className="flex h-10 w-10 items-center justify-center rounded-[10px] border border-white/[0.08] bg-white/[0.03] text-text-2 hover:bg-white/[0.06] cursor-pointer transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="5" r="1.8" />
+                <circle cx="12" cy="12" r="1.8" />
+                <circle cx="12" cy="19" r="1.8" />
+              </svg>
+            </button>
+            {headerMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-[220px] rounded-[12px] border border-white/[0.08] bg-[#151522] shadow-[0_12px_40px_rgba(0,0,0,0.55)] p-1.5 z-50">
+                {isStructuredSessionRoom ? (
+                  <>
+                    {chatroom.protocolRunId && (
+                      <button
+                        type="button"
+                        onClick={() => { setHeaderMenuOpen(false); router.push(`/protocols?runId=${encodeURIComponent(chatroom.protocolRunId || '')}`) }}
+                        className="w-full text-left px-3 py-2.5 rounded-[8px] text-[13px] font-600 text-text-2 hover:bg-white/[0.06] cursor-pointer transition-colors"
+                      >
+                        Back to Session
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => { setHeaderMenuOpen(false); setInjectContextOpen(true) }}
+                      className="w-full text-left px-3 py-2.5 rounded-[8px] text-[13px] font-600 text-sky-100 hover:bg-white/[0.06] cursor-pointer transition-colors"
+                    >
+                      Inject Context
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {activeParentRun && (
+                      <button
+                        type="button"
+                        onClick={() => { setHeaderMenuOpen(false); router.push(`/protocols?runId=${encodeURIComponent(activeParentRun.id)}`) }}
+                        className="w-full text-left px-3 py-2.5 rounded-[8px] text-[13px] font-600 text-sky-100 hover:bg-white/[0.06] cursor-pointer transition-colors"
+                      >
+                        Watch Session
+                      </button>
+                    )}
+                    {discussing ? (
+                      <button
+                        type="button"
+                        onClick={() => { setHeaderMenuOpen(false); stopDiscussion() }}
+                        className="w-full text-left px-3 py-2.5 rounded-[8px] text-[13px] font-600 text-red-300 hover:bg-white/[0.06] cursor-pointer transition-colors"
+                      >
+                        Dừng thảo luận
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={memberAgents.length < 2}
+                        onClick={() => {
+                          setHeaderMenuOpen(false)
+                          const ids = memberAgents.map((a) => a.id)
+                          setDiscussMain(ids[0] || '')
+                          setDiscussOrder(ids)
+                          setDiscussRounds(2)
+                          setDiscussCloser(ids[0] || '')
+                          setDiscussOpen(true)
+                        }}
+                        className="w-full text-left px-3 py-2.5 rounded-[8px] text-[13px] font-600 text-emerald-300 hover:bg-white/[0.06] cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Tự thảo luận
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHeaderMenuOpen(false)
+                        setStructuredSessionVariant('default')
+                        setStructuredSessionContext(defaultStructuredSessionContext)
+                        setStructuredSessionOpen(true)
+                      }}
+                      className="w-full text-left px-3 py-2.5 rounded-[8px] text-[13px] font-600 text-text-2 hover:bg-white/[0.06] cursor-pointer transition-colors"
+                    >
+                      Start Session
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setHeaderMenuOpen(false); setDetailsOpen(true) }}
+                  className="w-full text-left px-3 py-2.5 rounded-[8px] text-[13px] font-600 text-text-2 hover:bg-white/[0.06] cursor-pointer transition-colors"
+                >
+                  Details
+                </button>
+                {!isStructuredSessionRoom && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHeaderMenuOpen(false)
+                      setEditingChatroomId(chatroom.id)
+                      setChatroomSheetOpen(true)
+                    }}
+                    className="w-full text-left px-3 py-2.5 rounded-[8px] text-[13px] font-600 text-text-2 hover:bg-white/[0.06] cursor-pointer transition-colors"
+                  >
+                    Cài đặt phòng
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

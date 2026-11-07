@@ -225,7 +225,7 @@ export async function runChatroomAgentTurn(
       }).catch(() => {})
 
       markProviderSuccess(agent.provider)
-      writeEvent({ t: 'cr_agent_done', agentId: agent.id, agentName: agent.name })
+      writeEvent({ t: 'cr_agent_done', agentId: agent.id, agentName: agent.name, message: agentMessage })
 
       // Return chained agent IDs — enriched context is built by the caller when queuing
       return newMentions.filter((mid) => !processed.has(mid) && freshChatroom.agentIds.includes(mid))
